@@ -1,0 +1,15 @@
+.env
+.venv/
+backend/.venv/
+*.venv.broken-*/
+backend/.venv.broken-*/
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+vector_store/
+backend/vector_store/
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store

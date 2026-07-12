@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #080b12;
+  color: #e2e8f0;
+  font-family: 'DM Sans', sans-serif;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+/* Bounce animation for typing dots */
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(-4px); }
+}
+.animate-bounce {
+  animation: bounce 0.9s infinite;
+}
+
+@keyframes uploadFlow {
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 180% 50%; }
+}
+
+.upload-flow {
+  background-size: 180% 100%;
+  animation: uploadFlow 1.2s linear infinite;
+  transition: width 0.25s ease;
+}
+
+.message-markdown > :first-child { margin-top: 0; }
+.message-markdown > :last-child { margin-bottom: 0; }
+.message-markdown p { margin: 0.45rem 0; }
+.message-markdown ul,
+.message-markdown ol {
+  margin: 0.45rem 0;
+  padding-left: 1.25rem;
+}
+.message-markdown li { margin: 0.2rem 0; }
+.message-markdown code {
+  border-radius: 0.35rem;
+  background: rgb(15 23 42 / 0.95);
+  padding: 0.08rem 0.28rem;
+  color: #a5f3fc;
+  font-size: 0.86em;
+}
+.message-markdown pre {
+  overflow-x: auto;
+  border-radius: 0.75rem;
+  background: #020617;
+  padding: 0.75rem;
+}
+.message-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+.message-markdown a {
+  color: #67e8f9;
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
