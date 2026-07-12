@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clario Chat Demonstration</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600&display=swap');
+
+        :root {
+            --bg-color: #000000;
+            --text-color: #f8fafc;
+            --primary-color: #67e8f9;
+            --secondary-color: #22d3ee;
+            --chat-bg: #050505;
+            --user-msg: rgba(103, 232, 249, 0.12);
+            --ai-msg: #0a0a0a;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100vh;
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Background Animation */
+        .background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            background: radial-gradient(circle at 20% 80%, rgba(103, 232, 249, 0.08), transparent 40%),
+                        radial-gradient(circle at 80% 20%, rgba(20, 184, 166, 0.08), transparent 40%);
+            animation: pulse 10s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            100% { transform: scale(1.1); }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            animation: fadeInDown 1s ease-out;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin: 0;
+            background: linear-gradient(135deg, #67e8f9, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header p {
+            color: #94a3b8;
+            margin-top: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        /* Chat Container */
+        .chat-container {
+            width: 90%;
+            max-width: 900px;
+            height: 70vh;
+            background: var(--chat-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid #1c1c1c;
+            border-radius: 18px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(255, 255, 255, 0.02);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .chat-header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: #050505;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            background-color: #34d399;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #22c55e;
+            animation: blink 2s infinite;
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .chat-header-text h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .chat-header-text p {
+            margin: 0;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            scroll-behavior: smooth;
+        }
+
+        /* Custom Scrollbar */
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+        .chat-messages::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+        }
+
+        .message {
+            max-width: 80%;
+            padding: 1rem 1.5rem;
+            border-radius: 20px;
+            font-size: 1.1rem;
+            line-height: 1.6;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: messageAppear 0.5s forwards;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes messageAppear {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: var(--user-msg);
+            border: 1px solid rgba(103, 232, 249, 0.25);
+            color: #e5e7eb;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.ai {
+            align-self: flex-start;
+            background: var(--ai-msg);
+            border: 1px solid #1c1c1c;
+            border-bottom-left-radius: 4px;
+            color: #e2e8f0;
+        }
+
+        /* Citations in AI message */
+        .citation {
+            display: inline-block;
+            background: rgba(103, 232, 249, 0.14);
+            color: #67e8f9;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-left: 6px;
+            border: 1px solid rgba(59, 130, 246, 0.4);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .citation:hover {
+            background: rgba(59, 130, 246, 0.4);
+        }
+
+        /* Typing Indicator */
+        .typing-indicator {
+            display: none;
+            align-self: flex-start;
+            background: var(--ai-msg);
+            padding: 1rem 1.5rem;
+            border-radius: 20px;
+            border-bottom-left-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            gap: 6px;
+            align-items: center;
+        }
+
+        .typing-indicator span {
+            width: 8px;
+            height: 8px;
+            background: #94a3b8;
+            border-radius: 50%;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1); }
+        }
+
+        .chat-input-area {
+            padding: 1.5rem 2rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            background: #050505;
+            display: flex;
+            gap: 15px;
+        }
+
+        .chat-input-area input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1rem 1.5rem;
+            border-radius: 30px;
+            color: white;
+            font-family: inherit;
+            font-size: 1.1rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .chat-input-area input:focus {
+            border-color: var(--primary-color);
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .play-btn {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border: none;
+            color: white;
+            padding: 0 2rem;
+            border-radius: 30px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+
+        .play-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
+        }
+
+        .play-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="background"></div>
+
+    <div class="header">
+        <h1>Clario</h1>
+        <p>Updated Local RAG Assistant Demonstration</p>
+    </div>
+
+    <div class="chat-container">
+        <div class="chat-header">
+            <div class="status-dot"></div>
+            <div class="chat-header-text">
+                <h2>Clario AI Assistant</h2>
+                <p>Connected to Local Knowledge Base (ChromaDB)</p>
+            </div>
+        </div>
+
+        <div class="chat-messages" id="chatMessages">
+            <div class="message ai" style="animation-delay: 0.2s;">
+                Hi! I am Clario, your local document workspace. Upload files, manage indexed documents, and ask grounded questions with source-aware answers.
+            </div>
+            
+            <div class="typing-indicator" id="typingIndicator">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+
+        <div class="chat-input-area">
+            <input type="text" id="demoInput" placeholder="Press 'Start Demo' to simulate a conversation..." readonly>
+            <button class="play-btn" id="startBtn" onclick="runDemo()">Start Demo</button>
+        </div>
+    </div>
+
+    <script>
+        const script = [
+            {
+                type: 'user',
+                text: "What happens when I upload a document?",
+                delay: 1000
+            },
+            {
+                type: 'typing',
+                duration: 2500
+            },
+            {
+                type: 'ai',
+                text: "Clario temporarily saves the file only while extracting text, then deletes the original upload. Extracted text is split into chunks, embedded, and stored locally in ChromaDB. The sidebar now shows an <strong>Added documents</strong> section where each indexed file can be deleted.<span class=\"citation\">source: rag_chatbot.py</span>",
+                delay: 500
+            },
+            {
+                type: 'typing',
+                duration: 1500
+            },
+            {
+                type: 'ai',
+                text: "If Gemini embeddings are unavailable because of DNS or quota issues, Clario can fall back to local embeddings so uploads still appear in the knowledge base. <span class=\"citation\">Fallback indexing</span>",
+                delay: 500
+            },
+            {
+                type: 'user',
+                text: "What happens if Gemini is rate-limited?",
+                delay: 3500
+            },
+            {
+                type: 'typing',
+                duration: 2000
+            },
+            {
+                type: 'ai',
+                text: "Instead of showing a broken error, Clario retrieves the most relevant source passage and formats it as readable markdown. For example, a question about <strong>gamma discount factor</strong> becomes a structured answer with range, meaning, typical values, and tips. <span class=\"citation\">Structured fallback answer</span>",
+
+                delay: 500
+            }
+        ];
+
+        const chatMessages = document.getElementById('chatMessages');
+        const typingIndicator = document.getElementById('typingIndicator');
+        const startBtn = document.getElementById('startBtn');
+        const demoInput = document.getElementById('demoInput');
+
+        function scrollToBottom() {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        async function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function typeTextInInput(text) {
+            demoInput.value = "";
+            for (let i = 0; i < text.length; i++) {
+                demoInput.value += text.charAt(i);
+                await sleep(40); // typing speed
+            }
+            await sleep(400); // pause before sending
+            demoInput.value = "";
+        }
+
+        async function runDemo() {
+            startBtn.disabled = true;
+            startBtn.innerText = "Running...";
+            
+            for (const step of script) {
+                if (step.delay) await sleep(step.delay);
+
+                if (step.type === 'user') {
+                    await typeTextInInput(step.text);
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'message user';
+                    msgDiv.innerHTML = step.text;
+                    chatMessages.insertBefore(msgDiv, typingIndicator);
+                    scrollToBottom();
+                } 
+                else if (step.type === 'typing') {
+                    typingIndicator.style.display = 'flex';
+                    scrollToBottom();
+                    await sleep(step.duration);
+                    typingIndicator.style.display = 'none';
+                }
+                else if (step.type === 'ai') {
+                    const msgDiv = document.createElement('div');
+                    msgDiv.className = 'message ai';
+                    msgDiv.innerHTML = step.text;
+                    chatMessages.insertBefore(msgDiv, typingIndicator);
+                    scrollToBottom();
+                }
+            }
+
+            startBtn.innerText = "Demo Complete";
+            demoInput.placeholder = "Demonstration finished.";
+        }
+    </script>
+</body>
+</html>
