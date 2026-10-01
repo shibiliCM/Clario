@@ -1,0 +1,3 @@
+[submodule "rag-chatbot-free-tier"]
+	path = rag-chatbot-free-tier
+	url = https://github.com/shibiliCM/rag-chatbot-free-tier.git
