@@ -1,83 +1,132 @@
-import { Bot, User, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
+import { Bot, User, ChevronDown, ChevronUp, FileText, Copy, Check, Sparkles } from 'lucide-react';
 
 function scoreLabel(score) {
   if (!Number.isFinite(score)) return null;
-  return `${Math.max(0, Math.min(100, Math.round(score * 100)))}%`;
+  return `${Math.max(0, Math.min(100, Math.round(score * 100)))}% match`;
 }
 
-export default function MessageBubble({ message }) {
+export default function MessageBubble({ message, isStreaming = false }) {
   const [showSources, setShowSources] = useState(false);
+  const [copied, setCopied] = useState(false);
   const isAI = message.role === 'assistant';
 
+  const handleCopy = async () => {
+    if (!message.content) return;
+    try {
+      await navigator.clipboard.writeText(message.content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  };
+
   return (
-    <div className={`mb-4 flex max-w-[680px] gap-3 ${isAI ? 'flex-row' : 'ml-auto flex-row-reverse'}`}>
+    <div className={`group mb-5 flex max-w-[800px] gap-3.5 ${isAI ? 'flex-row' : 'ml-auto flex-row-reverse'}`}>
+      {/* Avatar */}
       <div className={`
-        flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg
+        relative flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-xl transition-transform
         ${isAI
-          ? 'border border-cyan-300/15 bg-cyan-300/5'
-          : 'border border-[#222] bg-[#111]'}
+          ? 'border border-cyan-500/20 bg-gradient-to-br from-cyan-950/60 to-slate-900/90 text-cyan-400 shadow-sm shadow-cyan-950/50'
+          : 'border border-slate-800 bg-slate-900 text-slate-400'}
       `}>
-        {isAI
-          ? <Bot size={16} className="text-cyan-300" />
-          : <User size={16} className="text-neutral-500" />
-        }
+        {isAI ? <Bot size={16} /> : <User size={16} />}
       </div>
 
-      <div className={`flex max-w-[78%] flex-col gap-1 ${isAI ? '' : 'items-end'}`}>
+      {/* Bubble Container */}
+      <div className={`flex max-w-[85%] flex-col gap-1.5 ${isAI ? '' : 'items-end'}`}>
         <div className={`
-          rounded-xl px-3.5 py-2.5 text-sm leading-relaxed font-sans whitespace-pre-wrap
+          relative rounded-2xl px-4 py-3 text-sm leading-relaxed transition-all
           ${isAI
-            ? 'border border-[#1c1c1c] bg-[#0a0a0a] text-neutral-300'
-            : 'border border-cyan-300/20 bg-cyan-300/10 text-neutral-200'}
+            ? 'border border-slate-800/80 bg-slate-900/60 text-slate-200 shadow-md shadow-black/20 backdrop-blur-sm'
+            : 'border border-cyan-500/30 bg-gradient-to-r from-cyan-950/50 to-blue-950/50 text-slate-100'}
         `}>
           {isAI ? (
-            <ReactMarkdown
-              className="message-markdown"
-              components={{
-                a: ({ node, ...props }) => (
-                  <a {...props} target="_blank" rel="noreferrer" />
-                ),
-              }}
-            >
-              {message.content || ''}
-            </ReactMarkdown>
+            <div>
+              <ReactMarkdown
+                className="message-markdown"
+                components={{
+                  a: ({ node, ...props }) => (
+                    <a {...props} target="_blank" rel="noreferrer" />
+                  ),
+                }}
+              >
+                {message.content || ''}
+              </ReactMarkdown>
+              {isStreaming && <span className="streaming-cursor" />}
+            </div>
           ) : (
-            message.content
+            <p className="whitespace-pre-wrap">{message.content}</p>
+          )}
+
+          {/* Action buttons on AI bubble */}
+          {isAI && message.content && !isStreaming && (
+            <div className="mt-2.5 flex items-center justify-between border-t border-slate-800/60 pt-2 text-[11px] text-slate-500">
+              <span className="flex items-center gap-1 font-mono text-[10px] text-slate-500">
+                <Sparkles size={11} className="text-cyan-400" />
+                Grounded by Gemini
+              </span>
+              <button
+                onClick={handleCopy}
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-slate-800 hover:text-slate-300"
+                title="Copy response"
+                type="button"
+              >
+                {copied ? (
+                  <>
+                    <Check size={11} className="text-emerald-400" />
+                    <span className="text-emerald-400">Copied</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={11} />
+                    <span>Copy</span>
+                  </>
+                )}
+              </button>
+            </div>
           )}
         </div>
 
+        {/* Source Citations Drawer */}
         {isAI && message.sources && message.sources.length > 0 && (
-          <div className="mt-1">
+          <div className="mt-0.5 px-1">
             <button
               onClick={() => setShowSources(v => !v)}
-              className="flex items-center gap-1 text-xs text-cyan-300/70 transition-colors hover:text-cyan-300"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-cyan-400/80 transition-colors hover:text-cyan-300"
+              type="button"
             >
               {showSources ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-              {message.sources.length} source{message.sources.length > 1 ? 's' : ''}
+              <span>
+                {message.sources.length} document source{message.sources.length > 1 ? 's' : ''} cited
+              </span>
             </button>
+
             {showSources && (
-              <div className="mt-1 flex flex-wrap gap-1">
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {message.sources.map((s, i) => (
-                  <span
+                  <div
                     key={i}
-                    className="inline-flex max-w-full items-center gap-1 rounded-md border border-[#222] bg-[#111] px-2 py-0.5 font-mono text-xs text-neutral-500"
-                    title={s.source || 'Source'}
+                    className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1 text-xs text-slate-400"
+                    title={s.source || 'Document source'}
                   >
-                    <FileText size={11} className="text-cyan-400" />
-                    <span className="truncate">{s.source?.split(/[\\/]/).pop() || 'doc'}</span>
+                    <FileText size={12} className="text-cyan-400 flex-shrink-0" />
+                    <span className="truncate font-mono text-[11px] text-slate-300">
+                      {s.source?.split(/[\\/]/).pop() || 'document'}
+                    </span>
                     {scoreLabel(s.score) && (
-                      <span className="ml-1 text-cyan-300">{scoreLabel(s.score)}</span>
+                      <span className="ml-1 rounded bg-cyan-950/80 px-1.5 py-0.2 text-[10px] font-semibold text-cyan-300 border border-cyan-800/40">
+                        {scoreLabel(s.score)}
+                      </span>
                     )}
-                  </span>
+                  </div>
                 ))}
               </div>
             )}
           </div>
         )}
 
-        <span className="px-1 text-[10px] text-neutral-700">
+        <span className="px-1 font-mono text-[10px] text-slate-600">
           {message.time}
         </span>
       </div>

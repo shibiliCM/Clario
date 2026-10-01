@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Database, Activity } from 'lucide-react';
+import { Database, Activity, Sparkles, AlertTriangle } from 'lucide-react';
 import { checkHealth } from '../services/api';
 
-export default function StatusBar({ refreshKey }) {
+export default function StatusBar({ refreshKey, onOpenSettings }) {
   const [health, setHealth] = useState(null);
   const [online, setOnline] = useState(null);
   const needsKey = online === true && health?.gemini_configured === false;
@@ -14,38 +14,53 @@ export default function StatusBar({ refreshKey }) {
   }, [refreshKey]);
 
   return (
-    <div className="mt-3">
-      <div className="flex items-center gap-1.5 rounded-lg border border-[#222] bg-[#0d0d0d] px-2.5 py-1.5">
+    <div className="mt-3 space-y-2">
+      <div className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-900/60 px-3 py-2">
         <div className="flex items-center gap-2">
           {online === null && (
-            <span className="h-[7px] w-[7px] rounded-full bg-neutral-500 animate-pulse" />
+            <span className="h-2 w-2 rounded-full bg-slate-500 animate-pulse" />
           )}
           {online === true && !needsKey && (
-            <span className="h-[7px] w-[7px] rounded-full bg-emerald-400 shadow-[0_0_8px_#00e676aa] animate-pulse" />
+            <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399] animate-pulse" />
           )}
           {needsKey && (
-            <span className="h-[7px] w-[7px] rounded-full bg-amber-300 shadow-[0_0_8px_#fcd34d]" />
+            <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_8px_#fbbf24]" />
           )}
           {online === false && (
-            <span className="h-[7px] w-[7px] rounded-full bg-red-400" />
+            <span className="h-2 w-2 rounded-full bg-rose-400 shadow-[0_0_8px_#f87171]" />
           )}
-          <span className="text-xs font-medium text-neutral-300">
-            {online === null ? 'connecting...' : needsKey ? 'needs key' : online ? 'ready' : 'offline'}
+          <span className="font-mono text-xs font-medium text-slate-300">
+            {online === null ? 'connecting...' : needsKey ? 'Gemini: local only' : online ? 'Gemini 2.5 Flash' : 'backend offline'}
           </span>
         </div>
 
-        {health && !needsKey && (
-          <span className="ml-auto flex items-center gap-1 rounded bg-[#111] px-1.5 py-0.5 text-[10px] text-neutral-500">
-            <Activity size={9} className="text-cyan-300" />
-            live
-          </span>
+        {needsKey ? (
+          <button
+            onClick={onOpenSettings}
+            className="flex items-center gap-1 rounded bg-amber-950/60 border border-amber-800/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 hover:bg-amber-900/60 transition-colors"
+          >
+            <AlertTriangle size={10} />
+            add key
+          </button>
+        ) : (
+          health && (
+            <span className="flex items-center gap-1 font-mono text-[10px] text-cyan-400">
+              <Activity size={10} className="text-emerald-400" />
+              live
+            </span>
+          )
         )}
       </div>
 
       {health && (
-        <div className="mt-2 flex items-center gap-1.5 px-0.5 text-[11px] text-neutral-500">
-          <Database size={14} className="text-neutral-600" />
-          {health.chunks_stored} indexed chunks
+        <div className="flex items-center justify-between px-1 text-[11px] font-mono text-slate-400">
+          <span className="flex items-center gap-1.5">
+            <Database size={12} className="text-cyan-400" />
+            {health.chunks_stored} indexed chunks
+          </span>
+          <span className="text-slate-500 text-[10px]">
+            ChromaDB
+          </span>
         </div>
       )}
     </div>

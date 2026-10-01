@@ -3,31 +3,35 @@ import {
   Link,
   CheckCircle,
   AlertCircle,
-  Loader,
+  Loader2,
   X,
   Files,
   Sparkles,
   Trash2,
   Database,
+  Search,
+  Globe,
+  FileCode,
+  FileSpreadsheet,
+  FileText,
 } from 'lucide-react';
 import { deleteDocument, ingestFiles, ingestURL, listDocuments } from '../services/api';
 
-const MAX_FILE_NAMES = 3;
-
-function formatFileList(files) {
-  const names = files.slice(0, MAX_FILE_NAMES).map(file => file.name).join(', ');
-  const extra = files.length > MAX_FILE_NAMES ? ` +${files.length - MAX_FILE_NAMES} more` : '';
-  return `${names}${extra}`;
-}
-
-function normalizeURL(value) {
-  try {
-    const parsed = new URL(value.trim());
-    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
-    return parsed.toString();
-  } catch {
-    return null;
+function formatFileType(source) {
+  const s = source?.toLowerCase() || '';
+  if (s.startsWith('http://') || s.startsWith('https://')) {
+    return { label: 'URL', color: 'bg-purple-950/60 text-purple-300 border-purple-800/40', icon: Globe };
   }
+  if (s.endsWith('.pdf')) {
+    return { label: 'PDF', color: 'bg-rose-950/60 text-rose-300 border-rose-800/40', icon: FileText };
+  }
+  if (s.endsWith('.docx') || s.endsWith('.doc')) {
+    return { label: 'DOC', color: 'bg-blue-950/60 text-blue-300 border-blue-800/40', icon: FileText };
+  }
+  if (s.endsWith('.csv')) {
+    return { label: 'CSV', color: 'bg-emerald-950/60 text-emerald-300 border-emerald-800/40', icon: FileSpreadsheet };
+  }
+  return { label: 'TXT', color: 'bg-amber-950/60 text-amber-300 border-amber-800/40', icon: FileCode };
 }
 
 function displaySource(source) {
@@ -40,17 +44,17 @@ function displaySource(source) {
 }
 
 export default function UploadPanel({ onSuccess, refreshKey }) {
-  const [dragging, setDragging]   = useState(false);
-  const [urlInput, setUrlInput]   = useState('');
-  const [showURL, setShowURL]     = useState(false);
-  const [status, setStatus]       = useState(null);
-  const [message, setMessage]     = useState('');
-  const [progress, setProgress]   = useState(0);
-  const [activeFiles, setActiveFiles] = useState([]);
+  const [dragging, setDragging] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [showURL, setShowURL] = useState(false);
+  const [status, setStatus] = useState(null);
+  const [message, setMessage] = useState('');
+  const [progress, setProgress] = useState(0);
   const [documents, setDocuments] = useState([]);
+  const [filterQuery, setFilterQuery] = useState('');
   const [docsLoading, setDocsLoading] = useState(false);
   const [deletingSource, setDeletingSource] = useState('');
-  const fileRef = useRef();
+  const fileRef = useRef(null);
   const busy = status === 'loading';
 
   const loadDocuments = async () => {
@@ -75,87 +79,76 @@ export default function UploadPanel({ onSuccess, refreshKey }) {
     if (files.length === 0) return;
 
     setStatus('loading');
-    setProgress(4);
-    setActiveFiles(files);
+    setProgress(15);
     setMessage(
       files.length === 1
         ? `Reading ${files[0].name}...`
-        : `Preparing ${files.length} files for the knowledge base...`
+        : `Uploading ${files.length} files...`
     );
 
     try {
       const res = await ingestFiles(files, event => {
         if (!event.total) return;
         const percent = Math.round((event.loaded * 100) / event.total);
-        setProgress(Math.max(6, Math.min(percent, 96)));
+        setProgress(Math.max(15, Math.min(percent, 92)));
       });
 
       setProgress(100);
       setStatus('success');
-      setMessage(`${res.data.chunks_stored} chunks indexed from ${res.data.files_processed || files.length} file(s).`);
+      setMessage(`Successfully indexed ${res.data.chunks_stored} chunk(s) into ChromaDB.`);
+      await loadDocuments();
       onSuccess?.();
       setTimeout(() => {
         setStatus(null);
         setProgress(0);
-        setActiveFiles([]);
-      }, 4500);
+      }, 4000);
     } catch (e) {
       setStatus('error');
-      setMessage(e.response?.data?.detail || 'Upload failed');
+      setMessage(e.response?.data?.detail || e.message || 'Upload failed');
     } finally {
       if (fileRef.current) fileRef.current.value = '';
     }
   };
 
   const handleURL = async () => {
-    if (busy) return;
-    const url = normalizeURL(urlInput);
-    if (!url) {
-      setStatus('error');
-      setProgress(0);
-      setActiveFiles([]);
-      setMessage('Enter a valid http or https URL.');
-      return;
-    }
+    if (busy || !urlInput.trim()) return;
 
     setStatus('loading');
-    setProgress(35);
-    setActiveFiles([]);
-    setMessage(`Fetching and sorting the useful bits from ${url}...`);
+    setProgress(30);
+    setMessage(`Fetching and extracting readable content from URL...`);
     try {
-      const res = await ingestURL(url);
+      const res = await ingestURL(urlInput.trim());
       setProgress(100);
       setStatus('success');
-      setMessage(`${res.data.chunks_stored} chunks indexed from the URL.`);
+      setMessage(`Indexed ${res.data.chunks_stored} chunk(s) from article.`);
       setUrlInput('');
       setShowURL(false);
+      await loadDocuments();
       onSuccess?.();
       setTimeout(() => {
         setStatus(null);
         setProgress(0);
-      }, 4500);
+      }, 4000);
     } catch (e) {
       setStatus('error');
-      setMessage(e.response?.data?.detail || 'URL ingestion failed');
+      setMessage(e.response?.data?.detail || e.message || 'URL scraping failed');
     }
   };
 
   const handleDelete = async (doc) => {
     if (busy || deletingSource) return;
     const label = displaySource(doc.source);
-    const confirmed = window.confirm(`Delete "${label}" from the knowledge base?`);
+    const confirmed = window.confirm(`Remove "${label}" and all its vector embeddings from ChromaDB?`);
     if (!confirmed) return;
 
     setDeletingSource(doc.source);
     try {
       const res = await deleteDocument(doc.source);
       setStatus('success');
-      setMessage(`${res.data.chunks_deleted} chunks deleted from ${label}.`);
-      setProgress(0);
-      setActiveFiles([]);
+      setMessage(`Deleted ${res.data.chunks_deleted} chunks from knowledge base.`);
       await loadDocuments();
       onSuccess?.();
-      setTimeout(() => setStatus(null), 3500);
+      setTimeout(() => setStatus(null), 3000);
     } catch (e) {
       setStatus('error');
       setMessage(e.response?.data?.detail || 'Document deletion failed');
@@ -164,37 +157,49 @@ export default function UploadPanel({ onSuccess, refreshKey }) {
     }
   };
 
-  return (
-    <div className="px-[18px] py-4">
-      <p className="mb-2.5 text-[10px] font-semibold uppercase tracking-[1.2px] text-neutral-600">
-        Knowledge base
-      </p>
+  const filteredDocs = documents.filter(doc =>
+    doc.source.toLowerCase().includes(filterQuery.toLowerCase())
+  );
 
+  const totalChunks = documents.reduce((acc, d) => acc + (d.chunks || 0), 0);
+
+  return (
+    <div className="flex h-full flex-col px-4 py-4">
+      {/* Header */}
+      <div className="mb-3 flex items-center justify-between">
+        <span className="font-display text-xs font-semibold uppercase tracking-wider text-slate-400">
+          Knowledge Base
+        </span>
+        <span className="rounded-full border border-slate-800 bg-slate-900 px-2 py-0.5 font-mono text-[10px] text-cyan-400">
+          {documents.length} doc{documents.length !== 1 ? 's' : ''} ({totalChunks} chunks)
+        </span>
+      </div>
+
+      {/* Drag & Drop Box */}
       <div
         onDragOver={e => { e.preventDefault(); if (!busy) setDragging(true); }}
         onDragLeave={() => setDragging(false)}
         onDrop={e => {
           e.preventDefault();
           setDragging(false);
-          if (busy) return;
-          handleFiles(e.dataTransfer.files);
+          if (!busy) handleFiles(e.dataTransfer.files);
         }}
         onClick={() => !busy && fileRef.current?.click()}
         className={`
-          relative overflow-hidden rounded-xl border border-dashed p-5 text-center cursor-pointer
+          group relative flex flex-col items-center justify-center rounded-xl border border-dashed p-4 text-center cursor-pointer
           transition-all duration-200 select-none
           ${dragging
-            ? 'border-cyan-300 bg-cyan-300/10'
-            : 'border-[#333] bg-[#080808] hover:border-cyan-300 hover:bg-[#0a0a0a]'}
+            ? 'border-cyan-400 bg-cyan-950/30'
+            : 'border-slate-800 bg-slate-900/40 hover:border-cyan-500/50 hover:bg-slate-900/80'}
         `}
       >
-        <div className="mx-auto mb-2.5 flex h-11 w-11 items-center justify-center rounded-[10px] border border-[#222] bg-[#111]">
-          <Files size={22} className="text-neutral-500" />
+        <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 group-hover:border-cyan-500/30 group-hover:text-cyan-400 transition-colors">
+          <Files size={18} />
         </div>
-        <p className="mb-1 text-[13px] text-neutral-400">
-          Drop files or <span className="text-cyan-300">click to browse</span>
+        <p className="text-xs font-medium text-slate-300">
+          Drop files or <span className="text-cyan-400 font-semibold underline underline-offset-2">browse</span>
         </p>
-        <p className="text-[10px] text-neutral-600">PDF, DOCX, TXT, MD, CSV</p>
+        <p className="mt-0.5 font-mono text-[10px] text-slate-500">PDF, DOCX, CSV, TXT, MD</p>
         <input
           ref={fileRef}
           type="file"
@@ -206,118 +211,134 @@ export default function UploadPanel({ onSuccess, refreshKey }) {
         />
       </div>
 
-      <button
-        onClick={() => setShowURL(v => !v)}
-        disabled={busy}
-        className="mt-2 flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs text-neutral-400 transition-colors hover:bg-[#0f0f0f] hover:text-cyan-300 disabled:opacity-50 disabled:hover:text-neutral-400"
-      >
-        <Link size={15} className="text-neutral-600" />
-        Add a web page
-      </button>
+      {/* URL Ingestion Trigger */}
+      <div className="mt-2.5">
+        <button
+          onClick={() => setShowURL(v => !v)}
+          disabled={busy}
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-800/80 bg-slate-900/40 px-3 py-2 text-xs font-medium text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800/60 hover:text-cyan-300 disabled:opacity-50"
+          type="button"
+        >
+          <Globe size={13} className="text-cyan-400" />
+          <span>Ingest Web Page or Article</span>
+        </button>
 
-      {showURL && (
-        <div className="mt-2 flex gap-2">
-          <input
-            value={urlInput}
-            onChange={e => setUrlInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleURL()}
-            placeholder="https://example.com"
-            className="min-w-0 flex-1 rounded-lg border border-[#222] bg-[#080808] px-3 py-2 text-xs text-neutral-300 placeholder-neutral-700 outline-none transition-colors focus:border-cyan-300/50"
-          />
-          <button
-            onClick={handleURL}
-            disabled={busy || !urlInput.trim()}
-            className="rounded-lg bg-cyan-300 px-3 py-2 text-xs font-bold text-black transition-colors hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Add
-          </button>
-        </div>
-      )}
-
-      <div className="mt-4 rounded-xl border border-[#1c1c1c] bg-[#080808]">
-        <div className="flex items-center justify-between gap-2 border-b border-[#1c1c1c] px-3 py-2">
-          <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[1.2px] text-neutral-600">
-            <Database size={12} className="text-cyan-300" />
-            Added documents
-          </div>
-          {docsLoading && <Loader size={12} className="animate-spin text-neutral-500" />}
-        </div>
-
-        {documents.length === 0 && !docsLoading ? (
-          <p className="px-3 py-3 text-xs text-neutral-600">
-            No documents indexed yet.
-          </p>
-        ) : (
-          <div className="max-h-44 overflow-y-auto p-2">
-            {documents.map(doc => (
-              <div
-                key={doc.source}
-                className="group flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-[#0f0f0f]"
-                title={doc.source}
-              >
-                <Files size={13} className="flex-shrink-0 text-neutral-600" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs text-neutral-400">{displaySource(doc.source)}</p>
-                  <p className="text-[10px] text-neutral-600">
-                    {doc.chunks} chunk{doc.chunks === 1 ? '' : 's'}
-                  </p>
-                </div>
-                <button
-                  onClick={() => handleDelete(doc)}
-                  disabled={busy || Boolean(deletingSource)}
-                  className="rounded-md p-1 text-neutral-700 opacity-0 transition-all hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-40 group-hover:opacity-100"
-                  aria-label={`Delete ${displaySource(doc.source)}`}
-                >
-                  {deletingSource === doc.source
-                    ? <Loader size={12} className="animate-spin" />
-                    : <Trash2 size={12} />
-                  }
-                </button>
-              </div>
-            ))}
+        {showURL && (
+          <div className="mt-2 flex gap-1.5">
+            <input
+              type="url"
+              placeholder="https://example.com/article"
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleURL()}
+              disabled={busy}
+              className="flex-1 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:border-cyan-500 focus:outline-none"
+            />
+            <button
+              onClick={handleURL}
+              disabled={busy || !urlInput.trim()}
+              className="rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-cyan-400 disabled:opacity-50"
+              type="button"
+            >
+              Add
+            </button>
           </div>
         )}
       </div>
 
+      {/* Progress / Status banner */}
       {status && (
-        <div className={`
-          mt-3 rounded-lg border px-3 py-2 text-xs
-          ${status === 'loading' ? 'border-[#222] bg-[#0d0d0d] text-neutral-300' : ''}
-          ${status === 'success' ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-300' : ''}
-          ${status === 'error'   ? 'border-red-500/20 bg-red-500/10 text-red-300' : ''}
-        `}>
+        <div className={`mt-3 rounded-lg border p-2.5 text-xs ${
+          status === 'loading' ? 'border-cyan-800/40 bg-cyan-950/30 text-cyan-200' :
+          status === 'success' ? 'border-emerald-800/40 bg-emerald-950/30 text-emerald-200' :
+          'border-rose-800/40 bg-rose-950/30 text-rose-200'
+        }`}>
           <div className="flex items-center gap-2">
-            {status === 'loading' && <Loader size={12} className="animate-spin text-cyan-300" />}
-            {status === 'success' && <CheckCircle size={12} />}
-            {status === 'error' && <AlertCircle size={12} />}
-            <span className="flex-1">{message}</span>
-            <button onClick={() => setStatus(null)} aria-label="Dismiss upload status">
-              <X size={10} />
-            </button>
+            {status === 'loading' && <Loader2 size={13} className="animate-spin text-cyan-400" />}
+            {status === 'success' && <CheckCircle size={13} className="text-emerald-400" />}
+            {status === 'error' && <AlertCircle size={13} className="text-rose-400" />}
+            <span className="truncate font-medium">{message}</span>
           </div>
-
-          {status === 'loading' && (
-            <div className="mt-3">
-              {activeFiles.length > 0 && (
-                <div className="mb-2 flex items-center gap-1.5 text-[10px] text-neutral-500">
-                  <Sparkles size={11} className="text-cyan-300" />
-                  <span className="truncate">{formatFileList(activeFiles)}</span>
-                </div>
-              )}
-              <div className="h-2 overflow-hidden rounded-full bg-[#151515]">
-                <div
-                  className="upload-flow h-full rounded-full bg-gradient-to-r from-cyan-300 via-emerald-300 to-amber-200"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <div className="mt-1.5 flex justify-between text-[10px] text-neutral-600">
-                <span>Indexing</span>
-                <span>{progress}%</span>
-              </div>
+          {status === 'loading' && progress > 0 && (
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-800">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
             </div>
           )}
         </div>
       )}
+
+      {/* Document Library Filter & List */}
+      <div className="mt-4 flex flex-1 flex-col overflow-hidden">
+        {documents.length > 4 && (
+          <div className="relative mb-2">
+            <Search size={12} className="absolute left-2.5 top-2.5 text-slate-500" />
+            <input
+              type="text"
+              placeholder="Filter documents..."
+              value={filterQuery}
+              onChange={e => setFilterQuery(e.target.value)}
+              className="w-full rounded-lg border border-slate-800 bg-slate-950 py-1.5 pl-7 pr-2 text-xs text-slate-300 placeholder-slate-600 focus:border-cyan-500 focus:outline-none"
+            />
+          </div>
+        )}
+
+        <div className="flex-1 space-y-1.5 overflow-y-auto pr-1">
+          {docsLoading && documents.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-500">
+              <Loader2 size={16} className="mx-auto mb-1 animate-spin text-slate-400" />
+              Loading library...
+            </div>
+          ) : filteredDocs.length === 0 ? (
+            <div className="py-6 text-center text-xs text-slate-500">
+              {documents.length === 0
+                ? 'No documents indexed yet.'
+                : 'No matching documents found.'}
+            </div>
+          ) : (
+            filteredDocs.map(doc => {
+              const meta = formatFileType(doc.source);
+              const Icon = meta.icon;
+              return (
+                <div
+                  key={doc.source}
+                  className="group flex items-center justify-between rounded-lg border border-slate-800/60 bg-slate-900/30 px-2.5 py-2 transition-colors hover:border-slate-700 hover:bg-slate-900/80"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <span className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded border text-[10px] font-bold ${meta.color}`}>
+                      {meta.label}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="truncate text-xs font-medium text-slate-300" title={doc.source}>
+                        {displaySource(doc.source)}
+                      </p>
+                      <p className="font-mono text-[10px] text-slate-500">
+                        {doc.chunks} chunk{doc.chunks !== 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleDelete(doc)}
+                    disabled={deletingSource === doc.source}
+                    className="opacity-0 group-hover:opacity-100 rounded p-1 text-slate-500 transition-opacity hover:bg-rose-950/40 hover:text-rose-400"
+                    title="Delete from knowledge base"
+                    type="button"
+                  >
+                    {deletingSource === doc.source ? (
+                      <Loader2 size={13} className="animate-spin text-rose-400" />
+                    ) : (
+                      <Trash2 size={13} />
+                    )}
+                  </button>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
     </div>
   );
 }

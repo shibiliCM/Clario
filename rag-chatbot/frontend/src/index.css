@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -6,65 +8,158 @@
 
 body {
   margin: 0;
-  background: #080b12;
-  color: #e2e8f0;
-  font-family: 'DM Sans', sans-serif;
+  background: #060911;
+  color: #f1f5f9;
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  overflow-x: hidden;
 }
 
-/* Scrollbar */
-::-webkit-scrollbar { width: 4px; height: 4px; }
+h1, h2, h3, h4, h5, h6, .font-display {
+  font-family: 'Outfit', sans-serif;
+}
+
+/* Custom Sleek Scrollbar */
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #475569; }
+::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: #334155; }
+
+/* Typing blink cursor for streaming */
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.streaming-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 14px;
+  background-color: #38bdf8;
+  margin-left: 3px;
+  vertical-align: middle;
+  border-radius: 1px;
+  animation: blink 0.8s infinite;
+}
 
 /* Bounce animation for typing dots */
-@keyframes bounce {
-  0%, 100% { transform: translateY(0); }
-  50%       { transform: translateY(-4px); }
+@keyframes bounceDot {
+  0%, 100% { transform: translateY(0); opacity: 0.6; }
+  50%       { transform: translateY(-5px); opacity: 1; }
 }
 .animate-bounce {
-  animation: bounce 0.9s infinite;
+  animation: bounceDot 1s infinite ease-in-out;
 }
 
+/* Upload progress flow */
 @keyframes uploadFlow {
   0%   { background-position: 0% 50%; }
-  100% { background-position: 180% 50%; }
+  100% { background-position: 200% 50%; }
 }
 
 .upload-flow {
-  background-size: 180% 100%;
-  animation: uploadFlow 1.2s linear infinite;
+  background-size: 200% 100%;
+  animation: uploadFlow 1.5s linear infinite;
   transition: width 0.25s ease;
+}
+
+/* Markdown typography in assistant bubble */
+.message-markdown {
+  color: #e2e8f0;
+  font-size: 0.9375rem;
+  line-height: 1.68;
 }
 
 .message-markdown > :first-child { margin-top: 0; }
 .message-markdown > :last-child { margin-bottom: 0; }
-.message-markdown p { margin: 0.45rem 0; }
+
+.message-markdown p { margin: 0.6rem 0; }
+
+.message-markdown h1,
+.message-markdown h2,
+.message-markdown h3,
+.message-markdown h4 {
+  font-weight: 600;
+  color: #f8fafc;
+  margin-top: 1rem;
+  margin-bottom: 0.4rem;
+}
+
+.message-markdown h1 { font-size: 1.25rem; }
+.message-markdown h2 { font-size: 1.15rem; }
+.message-markdown h3 { font-size: 1.05rem; }
+
 .message-markdown ul,
 .message-markdown ol {
-  margin: 0.45rem 0;
-  padding-left: 1.25rem;
+  margin: 0.5rem 0;
+  padding-left: 1.35rem;
 }
-.message-markdown li { margin: 0.2rem 0; }
+
+.message-markdown ul { list-style-type: disc; }
+.message-markdown ol { list-style-type: decimal; }
+.message-markdown li { margin: 0.25rem 0; }
+
+.message-markdown blockquote {
+  border-left: 3px solid #38bdf8;
+  background: rgba(56, 189, 248, 0.05);
+  padding: 0.5rem 0.85rem;
+  margin: 0.6rem 0;
+  border-radius: 0 0.5rem 0.5rem 0;
+  color: #94a3b8;
+  font-style: italic;
+}
+
 .message-markdown code {
+  font-family: 'JetBrains Mono', monospace;
   border-radius: 0.35rem;
-  background: rgb(15 23 42 / 0.95);
-  padding: 0.08rem 0.28rem;
-  color: #a5f3fc;
-  font-size: 0.86em;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.35rem;
+  color: #38bdf8;
+  font-size: 0.85em;
 }
+
 .message-markdown pre {
   overflow-x: auto;
   border-radius: 0.75rem;
   background: #020617;
-  padding: 0.75rem;
+  border: 1px solid #1e293b;
+  padding: 0.85rem 1rem;
+  margin: 0.75rem 0;
 }
+
 .message-markdown pre code {
   background: transparent;
+  border: none;
   padding: 0;
+  color: #cbd5e1;
 }
+
 .message-markdown a {
-  color: #67e8f9;
+  color: #38bdf8;
   text-decoration: underline;
-  text-underline-offset: 0.18em;
+  text-underline-offset: 0.2em;
+  transition: color 0.15s ease;
+}
+.message-markdown a:hover {
+  color: #7dd3fc;
+}
+
+.message-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.875rem;
+}
+
+.message-markdown th,
+.message-markdown td {
+  border: 1px solid #1e293b;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+
+.message-markdown th {
+  background: #0f172a;
+  color: #f8fafc;
+  font-weight: 600;
 }

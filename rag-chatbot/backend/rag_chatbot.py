@@ -1,19 +1,24 @@
 """
-Clario backend API.
+Clario Backend API (Production-Ready).
 
-Provides document ingestion, local vector search, and grounded chat responses.
+Provides document ingestion, local vector search with ChromaDB,
+hybrid lexical/semantic retrieval, and streaming grounded chat responses.
 """
 
+import asyncio
 import csv
 import hashlib
+import ipaddress
+import json
 import logging
 import math
 import os
 import re
+import socket
 import tempfile
 import uuid
 from collections import Counter
-from typing import Dict, List, Optional
+from typing import AsyncGenerator, Dict, List, Optional
 from urllib.parse import urlparse
 
 import aiofiles
@@ -23,8 +28,10 @@ import httpx
 import pdfplumber
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
-from fastapi import APIRouter, FastAPI, File, HTTPException, UploadFile
+from fastapi import APIRouter, FastAPI, File, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pydantic import BaseModel, Field
 
@@ -34,6 +41,7 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))
 from gemini_utils import (
     GeminiConfigurationError,
     gemini_chat,
+    gemini_chat_stream,
     gemini_embed,
     is_gemini_configured,
 )
@@ -43,6 +51,8 @@ CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 150))
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", 5))
 LOCAL_EMBED_DIM = int(os.getenv("LOCAL_EMBED_DIM", 3072))
 LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.5-flash")
+MAX_FILE_SIZE_BYTES = int(os.getenv("MAX_FILE_SIZE_BYTES", 31457280))  # 30 MB default
+
 VECTOR_STORE_PATH_RAW = os.getenv("VECTOR_STORE_PATH", "./vector_store")
 VECTOR_STORE_PATH = (
     VECTOR_STORE_PATH_RAW
@@ -59,17 +69,25 @@ log = logging.getLogger("clario")
 
 app = FastAPI(
     title="Clario API",
-    version="2.0.0",
-    description="Document ingestion and grounded chat API",
+    version="2.1.0",
+    description="High-performance document ingestion and grounded chat API with Gemini & ChromaDB",
 )
+
+# CORS configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
 router = APIRouter()
 
+
+# ---------------------------------------------------------------------------
+# Data Models
+# ---------------------------------------------------------------------------
 
 class ChatRequest(BaseModel):
     question: str
@@ -116,17 +134,19 @@ class DeleteDocumentResponse(BaseModel):
     documents_remaining: int = 0
 
 
-SYSTEM_PROMPT = """You are Clario, a warm, precise document mentor.
+# ---------------------------------------------------------------------------
+# Prompts & Splitting
+# ---------------------------------------------------------------------------
 
-RULES:
+SYSTEM_PROMPT = """You are Clario, an expert, warm, and precise document assistant.
+
+CRITICAL RULES:
 1. Answer ONLY using the provided CONTEXT below.
-2. If the answer is NOT in the context, say exactly:
+2. If the answer is NOT present or cannot be inferred from the context, respond clearly:
    "I don't have enough information to answer that from the provided documents."
-3. Never guess or make up information.
-4. Always mention which document or source your answer comes from.
-5. Explain like a good mentor: friendly, structured, and easy to understand.
-6. Prefer short headings, bullets, and plain examples when they help.
-7. If the user asks for a concept, teach it step by step using the document context.
+3. Never invent facts, hallucinate citations, or make assumptions outside the provided context.
+4. Always cite the document name or source when referencing specific facts or findings.
+5. Provide a well-structured, clear explanation using Markdown headings, bullet points, or code formatting when helpful.
 """
 
 
@@ -145,10 +165,10 @@ def build_prompt(
     history_str = "\n".join(history_lines)
     chunks_str = "\n\n---\n\n".join(
         (
-            f"[Chunk {i + 1} | Source: {chunk.get('source', 'unknown')} "
-            f"| Index: {chunk.get('chunk_index', 0)}]\n{chunk.get('text', '')}"
+            f"[Source: {chunk.get('source', 'unknown')} | Chunk #{chunk.get('chunk_index', 0)}]\n"
+            f"{chunk.get('text', '')}"
         )
-        for i, chunk in enumerate(retrieved_chunks)
+        for chunk in retrieved_chunks
     )
     return f"""{SYSTEM_PROMPT}
 
@@ -185,6 +205,10 @@ def split_text(text: str, source_file: str = "unknown") -> List[Dict]:
     ]
 
 
+# ---------------------------------------------------------------------------
+# Vector Store & Embedding Management
+# ---------------------------------------------------------------------------
+
 os.makedirs(VECTOR_STORE_PATH, exist_ok=True)
 chroma_client = chromadb.PersistentClient(path=VECTOR_STORE_PATH)
 
@@ -212,7 +236,7 @@ def _embedding_dimension() -> int:
 
 
 def _tokens(text: str) -> List[str]:
-    normalized = text.casefold().replace("\u03b3", " gamma ")
+    normalized = text.casefold()
     tokens = re.findall(r"[\w]+", normalized, flags=re.UNICODE)
     return [token for token in tokens if len(token) > 1 or token in {"x", "y"}]
 
@@ -221,45 +245,30 @@ def small_talk_answer(question: str) -> Optional[str]:
     normalized = re.sub(r"[^\w\s]", "", question.casefold()).strip()
     normalized = re.sub(r"\s+", " ", normalized)
     greetings = {
-        "hi",
-        "hello",
-        "hey",
-        "hai",
-        "hii",
-        "good morning",
-        "good afternoon",
-        "good evening",
-        "yo",
+        "hi", "hello", "hey", "hai", "hii", "good morning", "good afternoon", "good evening", "yo",
     }
-    thanks = {"thanks", "thank you", "thankyou", "ok", "okay", "cool"}
+    thanks = {"thanks", "thank you", "thankyou", "ok", "okay", "cool", "great"}
     identity = {
-        "who are you",
-        "what are you",
-        "what can you do",
-        "help",
-        "help me",
+        "who are you", "what are you", "what can you do", "help", "help me", "what is clario",
     }
     status = {
-        "how are you",
-        "how r u",
-        "how are u",
-        "are you there",
+        "how are you", "how r u", "how are u", "are you there", "status",
     }
 
     if normalized in greetings:
         return (
-            "Hey, I am here. Ask me anything about your uploaded documents, and I will answer like a mentor: "
-            "clear, structured, and tied back to the source."
+            "Hello! I am **Clario**, your document assistant. Ask me anything about your uploaded files, "
+            "and I'll synthesize structured, grounded answers with citations."
         )
     if normalized in thanks:
-        return "You're welcome. Send me the next question whenever you are ready."
+        return "You're welcome! Feel free to ask more questions about your documents."
     if normalized in identity:
         return (
-            "I am Clario, your document mentor. I can help you summarize uploaded files, explain concepts, "
-            "compare points across documents, and show sources for the answer."
+            "I am **Clario**, an AI-powered document research assistant. You can upload PDFs, Word documents, "
+            "spreadsheets, text notes, or web articles. I analyze them and answer your questions directly from your data."
         )
     if normalized in status:
-        return "I am ready and focused. What document topic should we work through?"
+        return "All systems operational! My knowledge base and retrieval engine are ready."
     return None
 
 
@@ -286,15 +295,15 @@ def local_embed(texts: List[str], dimensions: Optional[int] = None) -> List[List
     return vectors
 
 
-async def embed_texts(texts: List[str]) -> tuple[List[List[float]], str]:
+async def embed_texts(texts: List[str], api_key: Optional[str] = None) -> tuple[List[List[float]], str]:
     if not texts:
         return [], "local"
 
-    if is_gemini_configured():
+    if is_gemini_configured(api_key):
         try:
-            return await gemini_embed(texts), "gemini"
+            return await gemini_embed(texts, api_key=api_key), "gemini"
         except (GeminiConfigurationError, httpx.HTTPError, OSError) as exc:
-            log.warning("Gemini embeddings unavailable; using local embeddings: %s", exc)
+            log.warning("Gemini embeddings unavailable; falling back to local embeddings: %s", exc)
 
     return local_embed(texts), "local"
 
@@ -313,6 +322,10 @@ def store_chunks(chunks: List[Dict], vectors: List[List[float]]) -> int:
     log.info("Stored %d chunks in ChromaDB", len(chunks))
     return len(chunks)
 
+
+# ---------------------------------------------------------------------------
+# Retrieval & Search Logic
+# ---------------------------------------------------------------------------
 
 def lexical_search(question: str, top_k: int = TOP_K_RESULTS) -> List[Dict]:
     collection = _get_collection()
@@ -334,7 +347,7 @@ def lexical_search(question: str, top_k: int = TOP_K_RESULTS) -> List[Dict]:
             continue
 
         doc_counts = Counter(doc_tokens)
-        overlap = sum(min(count, doc_counts.get(token, 0)) for token, count in query_counts.items())
+        overlap = sum(min(cnt, doc_counts.get(token, 0)) for token, cnt in query_counts.items())
         phrase_bonus = 2 if query_phrase and query_phrase in " ".join(doc_tokens) else 0
         score = (overlap + phrase_bonus) / max(1, len(query_tokens))
         if score <= 0:
@@ -385,7 +398,9 @@ def merge_hits(*hit_groups: List[Dict], top_k: int = TOP_K_RESULTS) -> List[Dict
             key = (hit.get("source", "unknown"), hit.get("chunk_index", 0))
             if key not in merged or hit.get("score", 0) > merged[key].get("score", 0):
                 merged[key] = hit
-    return list(merged.values())[:top_k]
+
+    ranked = sorted(merged.values(), key=lambda h: h.get("score", 0), reverse=True)
+    return ranked[:top_k]
 
 
 def compact_sources(hits: List[Dict]) -> List[Dict]:
@@ -406,151 +421,19 @@ def build_extractive_answer(question: str, hits: List[Dict], reason: Optional[st
 
     best = hits[0]
     raw_text = best.get("text") or ""
-    body = format_retrieved_answer(raw_text, question)
-    note = ""
-    if reason:
-        note = f"> {reason} I formatted the most relevant source passage instead.\n\n"
+    note = f"> ℹ️ *{reason}*\n\n" if reason else ""
+
+    # Generate neat bulleted extract of sentences
+    sentences = re.split(r"(?<=[.!?])\s+", " ".join(raw_text.split()))
+    points = [s.strip(" .") for s in sentences if len(s.strip()) > 25][:5]
+    body = "\n".join(f"- {p}" for p in points) if points else raw_text
 
     return (
         f"{note}"
         f"**Source:** `{best.get('source', 'unknown')}`\n\n"
+        f"### Summary of Relevant Findings\n\n"
         f"{body}"
     )
-
-
-def format_retrieved_answer(text: str, question: str) -> str:
-    query_tokens = set(_tokens(question))
-    if {"discount", "factor"}.issubset(query_tokens) or {"gamma", "factor"}.issubset(query_tokens):
-        formatted = format_discount_factor_section(text)
-        if formatted:
-            return formatted
-
-    excerpt = relevant_excerpt(text, question)
-    points = sentence_points(excerpt, limit=8)
-    if not points:
-        return f"**Relevant passage**\n\n{excerpt}"
-
-    bullets = "\n".join(f"- {point}" for point in points)
-    return f"**Relevant passage**\n\n{bullets}"
-
-
-def format_discount_factor_section(text: str) -> Optional[str]:
-    section = extract_discount_factor_section(text)
-    if not section:
-        return None
-
-    def field(label: str, next_labels: List[str]) -> str:
-        markers = "|".join(re.escape(next_label) for next_label in next_labels)
-        match = re.search(
-            rf"{re.escape(label)}\s*:?\s*(.*?)(?=\s+(?:{markers})\s*:|\Z)",
-            section,
-            flags=re.IGNORECASE | re.DOTALL,
-        )
-        return clean_field(match.group(1)) if match else ""
-
-    range_value = field("Range", ["Meaning", "Typical values", "Tip"])
-    meaning = field("Meaning", ["Typical values", "Tip"])
-    typical = field("Typical values", ["Tip"])
-    tip = field("Tip", ["Exploration Rate", "epsilon", "\u03b5", "episodes"])
-
-    lines = [
-        "### Gamma - Discount Factor",
-        "",
-        "- **What it controls:** How much future rewards matter compared with immediate rewards.",
-    ]
-    if range_value:
-        lines.append(f"- **Range:** {range_value}")
-    if typical:
-        lines.append(f"- **Typical values:** {typical}")
-
-    low_value = extract_after_marker(meaning, "0")
-    high_value = extract_after_marker(meaning, "1")
-    if low_value:
-        lines.append(f"- **When gamma is low:** {low_value}")
-    if high_value:
-        lines.append(f"- **When gamma is high:** {high_value}")
-    if tip:
-        lines.append(f"- **Tip:** {tip}")
-
-    return "\n".join(lines)
-
-
-def extract_discount_factor_section(text: str) -> str:
-    compact = " ".join(text.split())
-    lowered = compact.casefold()
-    position = lowered.find("discount factor")
-    if position < 0:
-        return ""
-
-    start_markers = ["gamma =", "gamma ", "\u03b3"]
-    start = position
-    for marker in start_markers:
-        marker_position = lowered.rfind(marker, 0, position)
-        if marker_position >= 0 and position - marker_position < 180:
-            start = marker_position
-            break
-
-    end = len(compact)
-    for marker in [" exploration rate", " epsilon", " \u03b5", " episodes", " number of training"]:
-        marker_position = lowered.find(marker, position + 1)
-        if marker_position >= 0:
-            end = min(end, marker_position)
-
-    return compact[start:end].strip(" .")
-
-
-def clean_field(value: str) -> str:
-    value = re.sub(r"\s+", " ", value).strip(" .")
-    value = re.sub(r"^[o\-•]+\s*", "", value)
-    value = re.sub(r"(?:\s+[o?•])+$", "", value).strip(" .")
-    return value
-
-
-def extract_after_marker(text: str, marker: str) -> str:
-    pattern = rf"(?:^|\s){re.escape(marker)}\s*(?:->|\u2192|-|:)\s*(.*?)(?=\s+[01]\s*(?:->|\u2192|-|:)|\Z)"
-    match = re.search(pattern, text, flags=re.DOTALL)
-    return clean_field(match.group(1)) if match else ""
-
-
-def sentence_points(text: str, limit: int = 8) -> List[str]:
-    compact = " ".join(text.split())
-    compact = compact.replace("\u2022", ". ")
-    parts = re.split(r"(?<=[.!?])\s+", compact)
-    points = [part.strip(" .") for part in parts if len(part.strip()) > 20]
-    return points[:limit]
-
-
-def relevant_excerpt(text: str, question: str, max_chars: int = 1800) -> str:
-    compact = " ".join(text.split())
-    if len(compact) <= max_chars:
-        return compact
-
-    lowered = text.casefold()
-    query_tokens = _tokens(question)
-    phrases = []
-    if "discount" in query_tokens and "factor" in query_tokens:
-        phrases.append("discount factor")
-    phrases.extend(token for token in query_tokens if len(token) > 3)
-    phrases.append("\u03b3")
-
-    positions = [lowered.find(phrase.casefold()) for phrase in phrases if phrase]
-    positions = [position for position in positions if position >= 0]
-    if not positions:
-        return f"{compact[:max_chars].rstrip()}..."
-
-    position = min(positions)
-    start = max(0, position - 320)
-    end = min(len(text), start + max_chars)
-
-    line_start = text.rfind("\n", 0, position)
-    if line_start >= 0 and position - line_start < 500:
-        start = line_start + 1
-        end = min(len(text), start + max_chars)
-
-    excerpt = " ".join(text[start:end].split())
-    prefix = "..." if start > 0 else ""
-    suffix = "..." if end < len(text) else ""
-    return f"{prefix}{excerpt.rstrip()}{suffix}"
 
 
 def list_documents() -> List[Dict]:
@@ -586,18 +469,19 @@ def delete_document(source: str) -> int:
     return len(ids)
 
 
-def _require_provider() -> None:
-    if not is_gemini_configured():
-        raise HTTPException(
-            status_code=503,
-            detail="GEMINI_API_KEY is missing. Add it to backend/.env before using chat or ingestion.",
-        )
-
+# ---------------------------------------------------------------------------
+# File Extractors & SSRF-Protected Web Scraping
+# ---------------------------------------------------------------------------
 
 async def _save_temp_file(upload: UploadFile) -> str:
     suffix = os.path.splitext(upload.filename or "file")[1] or ".bin"
     tmp_path = os.path.join(tempfile.gettempdir(), f"{uuid.uuid4()}{suffix}")
     content = await upload.read()
+    if len(content) > MAX_FILE_SIZE_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File exceeds maximum allowed size ({MAX_FILE_SIZE_BYTES // (1024 * 1024)}MB).",
+        )
     async with aiofiles.open(tmp_path, "wb") as f:
         await f.write(content)
     return tmp_path
@@ -640,14 +524,39 @@ def _extract_csv(path: str) -> str:
     return "\n".join(rows)
 
 
-async def _scrape_url(url: str) -> str:
+def _validate_safe_url(url: str) -> str:
+    """Enforce SSRF prevention by disallowing private/loopback/metadata destinations."""
     parsed = urlparse(url.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.netloc:
         raise ValueError("Enter a valid http or https URL.")
 
-    headers = {"User-Agent": "Mozilla/5.0 Clario/1.0"}
+    host = parsed.hostname or ""
+    if host.lower() in {"localhost", "127.0.0.1", "::1"}:
+        raise ValueError("Access to localhost / loopback addresses is not permitted.")
+
+    try:
+        addr_info = socket.getaddrinfo(host, None)
+        for entry in addr_info:
+            ip_str = entry[4][0]
+            ip_obj = ipaddress.ip_address(ip_str)
+            if (
+                ip_obj.is_private
+                or ip_obj.is_loopback
+                or ip_obj.is_reserved
+                or ip_obj.is_link_local
+            ):
+                raise ValueError(f"Access to private/internal network address ({ip_str}) is blocked.")
+    except socket.gaierror:
+        raise ValueError(f"Unable to resolve hostname: {host}")
+
+    return url.strip()
+
+
+async def _scrape_url(url: str) -> str:
+    safe_url = _validate_safe_url(url)
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Clario/2.1"}
     async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-        resp = await client.get(url.strip(), headers=headers)
+        resp = await client.get(safe_url, headers=headers)
         resp.raise_for_status()
 
     soup = BeautifulSoup(resp.text, "html.parser")
@@ -666,19 +575,20 @@ async def _scrape_url(url: str) -> str:
     return "\n\n".join(blocks)
 
 
-async def process_upload(file: UploadFile) -> int:
+async def process_upload(file: UploadFile, api_key: Optional[str] = None) -> int:
     tmp_path = await _save_temp_file(file)
     suffix = os.path.splitext(tmp_path)[1].lower()
 
     try:
+        # Offload CPU-bound parsing to worker thread
         if suffix == ".pdf":
-            raw = _extract_pdf(tmp_path)
+            raw = await asyncio.to_thread(_extract_pdf, tmp_path)
         elif suffix == ".docx":
-            raw = _extract_docx(tmp_path)
+            raw = await asyncio.to_thread(_extract_docx, tmp_path)
         elif suffix in {".txt", ".md"}:
-            raw = _extract_txt(tmp_path)
+            raw = await asyncio.to_thread(_extract_txt, tmp_path)
         elif suffix == ".csv":
-            raw = _extract_csv(tmp_path)
+            raw = await asyncio.to_thread(_extract_csv, tmp_path)
         else:
             raise ValueError(f"Unsupported file type: '{suffix}'. Supported: PDF, DOCX, TXT, MD, CSV")
     finally:
@@ -691,33 +601,41 @@ async def process_upload(file: UploadFile) -> int:
         raise ValueError("No text could be extracted from the file.")
 
     chunks = split_text(raw, source_file=file.filename or "upload")
-    vectors, provider = await embed_texts([c["text"] for c in chunks])
+    vectors, provider = await embed_texts([c["text"] for c in chunks], api_key=api_key)
     for chunk in chunks:
         chunk["meta"]["embedding_provider"] = provider
     return store_chunks(chunks, vectors)
 
 
-async def process_url(url: str) -> int:
+async def process_url(url: str, api_key: Optional[str] = None) -> int:
     raw = await _scrape_url(url)
     if not raw.strip():
         raise ValueError("No text could be extracted from the URL.")
 
     chunks = split_text(raw, source_file=url)
-    vectors, provider = await embed_texts([c["text"] for c in chunks])
+    vectors, provider = await embed_texts([c["text"] for c in chunks], api_key=api_key)
     for chunk in chunks:
         chunk["meta"]["embedding_provider"] = provider
     return store_chunks(chunks, vectors)
 
 
+# ---------------------------------------------------------------------------
+# API Routes
+# ---------------------------------------------------------------------------
+
 @router.get("/health")
-async def health():
+async def health(x_gemini_key: Optional[str] = Header(None, alias="X-Gemini-Key")):
     collection = _get_collection()
+    has_gemini = is_gemini_configured(x_gemini_key)
     return {
         "status": "ok",
+        "service": "Clario API",
+        "version": "2.1.0",
         "model": LLM_MODEL,
-        "gemini_configured": is_gemini_configured(),
-        "vector_db": "ChromaDB (local)",
+        "gemini_configured": has_gemini,
+        "vector_db": "ChromaDB (local persistent)",
         "chunks_stored": collection.count(),
+        "documents_count": len(list_documents()),
     }
 
 
@@ -756,6 +674,7 @@ async def remove_document(body: DeleteDocumentRequest):
 async def ingest_file(
     files: Optional[List[UploadFile]] = File(None),
     file: Optional[UploadFile] = File(None),
+    x_gemini_key: Optional[str] = Header(None, alias="X-Gemini-Key"),
 ):
     try:
         upload_files = files or ([file] if file is not None else [])
@@ -766,7 +685,7 @@ async def ingest_file(
         filenames = []
         for upload in upload_files:
             log.info("Ingesting file: %s", upload.filename)
-            total_chunks += await process_upload(upload)
+            total_chunks += await process_upload(upload, api_key=x_gemini_key)
             filenames.append(upload.filename or "upload")
 
         return IngestResponse(
@@ -783,17 +702,20 @@ async def ingest_file(
     except GeminiConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Gemini request failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"Embedding provider request failed: {exc}")
     except Exception as exc:
         log.exception("Ingestion failed")
         raise HTTPException(status_code=500, detail=f"Ingestion error: {exc}")
 
 
 @router.post("/ingest-url", response_model=IngestResponse)
-async def ingest_url(body: IngestURLRequest):
+async def ingest_url(
+    body: IngestURLRequest,
+    x_gemini_key: Optional[str] = Header(None, alias="X-Gemini-Key"),
+):
     try:
         log.info("Scraping URL: %s", body.url)
-        count = await process_url(body.url)
+        count = await process_url(body.url, api_key=x_gemini_key)
         return IngestResponse(
             status="success",
             chunks_stored=count,
@@ -817,7 +739,10 @@ async def ingest_url(body: IngestURLRequest):
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(payload: ChatRequest):
+async def chat(
+    payload: ChatRequest,
+    x_gemini_key: Optional[str] = Header(None, alias="X-Gemini-Key"),
+):
     if not payload.question.strip():
         raise HTTPException(status_code=400, detail="Question cannot be empty.")
 
@@ -828,23 +753,15 @@ async def chat(payload: ChatRequest):
 
         if _get_collection().count() == 0:
             return ChatResponse(
-                answer="I don't have enough information to answer that from the provided documents.",
+                answer="No documents are currently indexed in Clario. Please upload a PDF, DOCX, CSV, or web link to start chatting!",
                 sources=[],
                 chunks=[],
             )
 
         lexical_hits = lexical_search(payload.question, top_k=TOP_K_RESULTS)
-        query_vectors, query_provider = await embed_texts([payload.question])
+        query_vectors, query_provider = await embed_texts([payload.question], api_key=x_gemini_key)
         vector_hits = search_similar(query_vectors[0], top_k=TOP_K_RESULTS)
         hits = merge_hits(lexical_hits, vector_hits, top_k=TOP_K_RESULTS)
-        query_tokens = _tokens(payload.question)
-
-        if not lexical_hits and len(query_tokens) <= 2:
-            return ChatResponse(
-                answer="I don't have enough information to answer that from the provided documents.",
-                sources=[],
-                chunks=[],
-            )
 
         if not hits:
             return ChatResponse(
@@ -859,7 +776,7 @@ async def chat(payload: ChatRequest):
                 answer=build_extractive_answer(
                     payload.question,
                     fallback_hits,
-                    "Gemini is unavailable right now, so I cannot generate a full answer.",
+                    "Gemini is offline or unconfigured. Below is the relevant extracted passage.",
                 ),
                 sources=compact_sources(fallback_hits),
                 chunks=fallback_hits,
@@ -870,14 +787,15 @@ async def chat(payload: ChatRequest):
             chat_history=payload.chat_history,
             question=payload.question,
         )
+
         try:
-            answer, _ = await gemini_chat(full_prompt, model=LLM_MODEL)
+            answer, _ = await gemini_chat(full_prompt, model=LLM_MODEL, api_key=x_gemini_key)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 429:
                 answer = build_extractive_answer(
                     payload.question,
                     hits,
-                    "Gemini is rate-limited right now, so I cannot generate a full answer.",
+                    "Gemini API is currently rate-limited (429). Here is the relevant extracted passage.",
                 )
             else:
                 raise
@@ -885,7 +803,7 @@ async def chat(payload: ChatRequest):
             answer = build_extractive_answer(
                 payload.question,
                 hits,
-                f"Gemini request failed: {exc}.",
+                f"Gemini API request failed: {exc}",
             )
 
         return ChatResponse(
@@ -897,17 +815,132 @@ async def chat(payload: ChatRequest):
         raise
     except GeminiConfigurationError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
-    except httpx.HTTPError as exc:
-        raise HTTPException(status_code=502, detail=f"Gemini request failed: {exc}")
     except Exception as exc:
         log.exception("Chat failed")
         raise HTTPException(status_code=500, detail=f"Chat error: {exc}")
 
 
+@router.post("/chat/stream")
+async def chat_stream(
+    payload: ChatRequest,
+    x_gemini_key: Optional[str] = Header(None, alias="X-Gemini-Key"),
+):
+    """
+    Server-Sent Events (SSE) streaming chat endpoint.
+    Emits real-time tokens directly to the browser for zero perceived latency.
+    """
+    if not payload.question.strip():
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
+
+    async def event_generator() -> AsyncGenerator[str, None]:
+        canned = small_talk_answer(payload.question)
+        if canned:
+            yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
+            yield f"data: {json.dumps({'type': 'delta', 'text': canned})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        if _get_collection().count() == 0:
+            yield f"data: {json.dumps({'type': 'sources', 'sources': []})}\n\n"
+            yield f"data: {json.dumps({'type': 'delta', 'text': 'No documents are currently indexed in Clario. Please upload documents in the sidebar to begin!'})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        lexical_hits = lexical_search(payload.question, top_k=TOP_K_RESULTS)
+        query_vectors, query_provider = await embed_texts([payload.question], api_key=x_gemini_key)
+        vector_hits = search_similar(query_vectors[0], top_k=TOP_K_RESULTS)
+        hits = merge_hits(lexical_hits, vector_hits, top_k=TOP_K_RESULTS)
+
+        sources = compact_sources(hits)
+        yield f"data: {json.dumps({'type': 'sources', 'sources': sources})}\n\n"
+
+        if not hits:
+            no_info_msg = "I don't have enough information to answer that from the provided documents."
+            yield f"data: {json.dumps({'type': 'delta', 'text': no_info_msg})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # Fallback if Gemini not available
+        if query_provider != "gemini":
+            fallback_text = build_extractive_answer(
+                payload.question,
+                hits,
+                "Gemini is offline or unconfigured. Below is the relevant extracted passage.",
+            )
+            # Stream in friendly word chunks
+            for word in fallback_text.split(" "):
+                yield f"data: {json.dumps({'type': 'delta', 'text': word + ' '})}\n\n"
+                await asyncio.sleep(0.015)
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        full_prompt = build_prompt(
+            retrieved_chunks=hits,
+            chat_history=payload.chat_history,
+            question=payload.question,
+        )
+
+        try:
+            async for token in gemini_chat_stream(full_prompt, model=LLM_MODEL, api_key=x_gemini_key):
+                yield f"data: {json.dumps({'type': 'delta', 'text': token})}\n\n"
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 429:
+                fallback_msg = build_extractive_answer(
+                    payload.question,
+                    hits,
+                    "Gemini API rate limit reached (429). Here is the relevant extracted text.",
+                )
+                yield f"data: {json.dumps({'type': 'delta', 'text': fallback_msg})}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'delta', 'text': f'Gemini error: {exc}'})}\n\n"
+        except Exception as exc:
+            yield f"data: {json.dumps({'type': 'delta', 'text': f'Generation error: {exc}'})}\n\n"
+
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+# Attach API router
 app.include_router(router, prefix="/api")
+
+
+# ---------------------------------------------------------------------------
+# Static Web App Mount (Production Unified Serving)
+# ---------------------------------------------------------------------------
+
+dist_candidates = [
+    os.path.join(BASE_DIR, "..", "frontend", "dist"),
+    os.path.join(BASE_DIR, "frontend", "dist"),
+    os.path.join(BASE_DIR, "dist"),
+]
+dist_dir = next((path for path in dist_candidates if os.path.isdir(path)), None)
+
+if dist_dir:
+    log.info("Mounting built frontend static files from: %s", dist_dir)
+    assets_dir = os.path.join(dist_dir, "assets")
+    if os.path.isdir(assets_dir):
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api/") or full_path == "docs" or full_path == "openapi.json":
+            raise HTTPException(status_code=404)
+        target = os.path.join(dist_dir, full_path)
+        if os.path.isfile(target):
+            return FileResponse(target)
+        return FileResponse(os.path.join(dist_dir, "index.html"))
 
 
 if __name__ == "__main__":
     import uvicorn
-
-    uvicorn.run("rag_chatbot:app", host="0.0.0.0", port=8000, reload=True)
+    port = int(os.getenv("PORT", 8000))
+    uvicorn.run("rag_chatbot:app", host="0.0.0.0", port=port, reload=True)
