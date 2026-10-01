@@ -11,21 +11,21 @@ Clario runs as a **unified, single-port service**. In production, FastAPI serves
 ```mermaid
 graph TD
     User([User / Browser]) -->|HTTP / SSE| App[Clario Unified Web App :8000]
-    
+
     subgraph FastAPI Core
         App --> Static[Static File Mount: React SPA]
         App --> Router[API Router /api/*]
-        
+
         Router --> Stream[SSE Streaming Chat /api/chat/stream]
         Router --> Ingest[Document Ingestion /api/ingest]
         Router --> Scrape[SSRF-Protected URL Scraper /api/ingest-url]
         Router --> DocMgmt[Document & Chunk Management]
-        
+
         Ingest --> Offload[Threadpool File Extractors: PDF, DOCX, CSV]
         Offload --> Split[Recursive Text Splitter]
         Split --> Embed[Gemini Embedding API / Blake2b Fallback]
         Embed --> Chroma[(Local ChromaDB Vector Store)]
-        
+
         Stream --> Hybrid[Hybrid Search: Token Overlap + Cosine Vector]
         Hybrid --> Chroma
         Hybrid --> Prompt[Context-Grounded Prompt Assembler]
@@ -48,7 +48,7 @@ graph TD
    - **Context**: `rag-chatbot-free-tier/rag-chatbot`
    - **Instance Type**: Free
 5. Set Environment Variable in Render Dashboard:
-   - `GEMINI_API_KEY`: *(Your Google Gemini API key from AI Studio)*
+   - `GEMINI_API_KEY`: _(Your Google Gemini API key from AI Studio)_
 6. Click **Deploy**. Your app will be live at `https://<your-service>.onrender.com`!
 
 ### Option B: Railway Deployment
@@ -66,6 +66,7 @@ cd rag-chatbot-free-tier/rag-chatbot
 docker build -t clario .
 docker run -p 8000:8000 -e GEMINI_API_KEY="your_api_key" clario
 ```
+
 Open **`http://localhost:8000`** in your browser.
 
 ---
@@ -75,6 +76,7 @@ Open **`http://localhost:8000`** in your browser.
 To develop locally with live hot-reloading:
 
 ### 1. Backend Server
+
 ```powershell
 cd rag-chatbot-free-tier\rag-chatbot\backend
 # Activate virtual environment
@@ -84,11 +86,13 @@ python -m uvicorn rag_chatbot:app --host 0.0.0.0 --port 8000 --reload
 ```
 
 ### 2. Frontend Development Server (Optional for Dev Hot-Reload)
+
 ```powershell
 cd rag-chatbot-free-tier\rag-chatbot\frontend
 npm install
 npm run dev
 ```
+
 Open **`http://localhost:5173`** (Vite proxies all `/api` calls directly to port 8000).
 
 ---
@@ -112,14 +116,16 @@ Open **`http://localhost:5173`** (Vite proxies all `/api` calls directly to port
 
 ## 📋 API Route Reference
 
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/chat/stream` | **Server-Sent Events** real-time streaming chat endpoint with citations. |
-| `POST` | `/api/chat` | Standard JSON grounded chat endpoint. |
-| `POST` | `/api/ingest` | Multipart file upload (`.pdf`, `.docx`, `.csv`, `.txt`, `.md`). |
-| `POST` | `/api/ingest-url` | SSRF-safe web scraper and article chunker. |
-| `GET` | `/api/documents` | Lists all indexed sources and chunk counts. |
-| `DELETE` | `/api/documents` | Deletes a document and its embeddings from ChromaDB. |
-| `GET` | `/api/health` | Diagnostic status (API version, ChromaDB chunks, Gemini status). |
-| `GET` | `/docs` | Interactive Swagger API documentation. |
-| `GET` | `/` | Serves compiled React single-page application. |
+| Method   | Endpoint           | Description                                                              |
+| -------- | ------------------ | ------------------------------------------------------------------------ |
+| `POST`   | `/api/chat/stream` | **Server-Sent Events** real-time streaming chat endpoint with citations. |
+| `POST`   | `/api/chat`        | Standard JSON grounded chat endpoint.                                    |
+| `POST`   | `/api/ingest`      | Multipart file upload (`.pdf`, `.docx`, `.csv`, `.txt`, `.md`).          |
+| `POST`   | `/api/ingest-url`  | SSRF-safe web scraper and article chunker.                               |
+| `GET`    | `/api/documents`   | Lists all indexed sources and chunk counts.                              |
+| `DELETE` | `/api/documents`   | Deletes a document and its embeddings from ChromaDB.                     |
+| `GET`    | `/api/health`      | Diagnostic status (API version, ChromaDB chunks, Gemini status).         |
+| `GET`    | `/docs`            | Interactive Swagger API documentation.                                   |
+| `GET`    | `/`                | Serves compiled React single-page application.                           |
+
+3
