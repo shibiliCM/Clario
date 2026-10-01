@@ -18,8 +18,17 @@ function Test-Python {
 }
 
 function Find-Python {
-    $BundledPython = Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe"
-    foreach ($candidate in @("python", "py", $BundledPython)) {
+    $Candidates = @(
+        "python",
+        "py",
+        "python3",
+        "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe",
+        "$env:LOCALAPPDATA\Programs\Python\Python311\python.exe",
+        "$env:ProgramFiles\Python312\python.exe",
+        "$env:ProgramFiles\Python311\python.exe",
+        (Join-Path $env:USERPROFILE ".cache\codex-runtimes\codex-primary-runtime\dependencies\python\python.exe")
+    )
+    foreach ($candidate in $Candidates) {
         if (Test-Python $candidate) {
             return $candidate
         }
