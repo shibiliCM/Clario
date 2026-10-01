@@ -127,5 +127,3 @@ Open **`http://localhost:5173`** (Vite proxies all `/api` calls directly to port
 | `GET`    | `/api/health`      | Diagnostic status (API version, ChromaDB chunks, Gemini status).         |
 | `GET`    | `/docs`            | Interactive Swagger API documentation.                                   |
 | `GET`    | `/`                | Serves compiled React single-page application.                           |
-
-3
