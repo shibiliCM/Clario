@@ -1,0 +1,32 @@
+# Python & Virtual Environments
+.venv/
+*/.venv/
+*/*/.venv/
+*.venv.broken-*/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment & Secrets
+.env
+*.env
+!.env.example
+
+# Node / Frontend
+node_modules/
+*/node_modules/
+*/*/node_modules/
+dist/
+*/dist/
+*/*/dist/
+
+# ChromaDB & Vector Store
+vector_store/
+*/vector_store/
+*/*/vector_store/
+
+# Logs & OS
+*.log
+*.err
+.DS_Store
+Thumbs.db
