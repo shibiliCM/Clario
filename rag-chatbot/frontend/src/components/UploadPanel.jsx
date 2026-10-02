@@ -186,18 +186,18 @@ export default function UploadPanel({ onSuccess, refreshKey }) {
         }}
         onClick={() => !busy && fileRef.current?.click()}
         className={`
-          group relative flex flex-col items-center justify-center rounded-xl border border-dashed p-4 text-center cursor-pointer
-          transition-all duration-200 select-none
+          group relative flex flex-col items-center justify-center rounded-xl border border-dashed p-3.5 sm:p-4 text-center cursor-pointer
+          transition-all duration-200 select-none touch-manipulation active:scale-[0.99]
           ${dragging
             ? 'border-cyan-400 bg-cyan-950/30'
             : 'border-slate-800 bg-slate-900/40 hover:border-cyan-500/50 hover:bg-slate-900/80'}
         `}
       >
-        <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 group-hover:border-cyan-500/30 group-hover:text-cyan-400 transition-colors">
-          <Files size={18} />
+        <div className="mb-2 flex h-8 w-8 sm:h-9 sm:w-9 items-center justify-center rounded-lg border border-slate-800 bg-slate-900 text-slate-400 group-hover:border-cyan-500/30 group-hover:text-cyan-400 transition-colors">
+          <Files size={17} />
         </div>
         <p className="text-xs font-medium text-slate-300">
-          Drop files or <span className="text-cyan-400 font-semibold underline underline-offset-2">browse</span>
+          <span className="text-cyan-400 font-semibold underline underline-offset-2">Upload files</span> or drop here
         </p>
         <p className="mt-0.5 font-mono text-[10px] text-slate-500">PDF, DOCX, CSV, TXT, MD</p>
         <input
@@ -216,7 +216,7 @@ export default function UploadPanel({ onSuccess, refreshKey }) {
         <button
           onClick={() => setShowURL(v => !v)}
           disabled={busy}
-          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-800/80 bg-slate-900/40 px-3 py-2 text-xs font-medium text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800/60 hover:text-cyan-300 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-800/80 bg-slate-900/40 px-3 py-2 text-xs font-medium text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800/60 hover:text-cyan-300 disabled:opacity-50 touch-manipulation"
           type="button"
         >
           <Globe size={13} className="text-cyan-400" />
@@ -232,12 +232,12 @@ export default function UploadPanel({ onSuccess, refreshKey }) {
               onChange={e => setUrlInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleURL()}
               disabled={busy}
-              className="flex-1 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 placeholder-slate-600 focus:border-cyan-500 focus:outline-none"
+              className="flex-1 rounded-lg border border-slate-800 bg-slate-950 px-2.5 py-1.5 text-sm sm:text-xs text-slate-200 placeholder-slate-600 focus:border-cyan-500 focus:outline-none"
             />
             <button
               onClick={handleURL}
               disabled={busy || !urlInput.trim()}
-              className="rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-cyan-400 disabled:opacity-50"
+              className="rounded-lg bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-cyan-400 disabled:opacity-50 min-h-[34px]"
               type="button"
             >
               Add
@@ -323,7 +323,7 @@ export default function UploadPanel({ onSuccess, refreshKey }) {
                   <button
                     onClick={() => handleDelete(doc)}
                     disabled={deletingSource === doc.source}
-                    className="opacity-0 group-hover:opacity-100 rounded p-1 text-slate-500 transition-opacity hover:bg-rose-950/40 hover:text-rose-400"
+                    className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 rounded p-1.5 text-slate-400 transition-all hover:bg-rose-950/40 hover:text-rose-400 hover:opacity-100"
                     title="Delete from knowledge base"
                     type="button"
                   >

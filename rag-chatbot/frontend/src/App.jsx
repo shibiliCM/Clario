@@ -15,6 +15,8 @@ import {
   MessageSquare,
   Settings,
   Sparkles,
+  Menu,
+  X,
 } from 'lucide-react';
 
 const HISTORY_KEY = 'clario-history-v2';
@@ -45,13 +47,24 @@ export default function App() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [streamingId, setStreamingId] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return false;
+  });
   const [refreshKey, setRefreshKey] = useState(0);
   const [history, setHistory] = useState(loadHistory);
   const [activeId, setActiveId] = useState(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   const abortControllerRef = useRef(null);
+
+  const closeOnMobile = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  };
 
   // Sync conversation history to localStorage
   useEffect(() => {
@@ -163,6 +176,7 @@ export default function App() {
     setActiveId(null);
     setMessages([]);
     setInput('');
+    closeOnMobile();
   };
 
   const openHistory = (item) => {
@@ -170,6 +184,7 @@ export default function App() {
     setActiveId(item.id);
     setMessages(item.messages);
     setInput('');
+    closeOnMobile();
   };
 
   const deleteHistory = (id, e) => {
@@ -183,12 +198,13 @@ export default function App() {
       setHistory(prev => prev.filter(item => item.id !== activeId));
     }
     startNewChat();
+    closeOnMobile();
   };
 
   const handleUploadSuccess = () => setRefreshKey(k => k + 1);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#060911] font-sans text-slate-100">
+    <div className="flex h-screen h-dvh overflow-hidden bg-[#060911] font-sans text-slate-100">
       {/* Settings Modal */}
       <SettingsModal
         isOpen={settingsOpen}
@@ -196,14 +212,25 @@ export default function App() {
         onRefresh={() => setRefreshKey(k => k + 1)}
       />
 
-      {/* Collapsible Sidebar */}
+      {/* Mobile Backdrop for Drawer */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-xs transition-opacity md:hidden"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Collapsible Responsive Sidebar */}
       <aside className={`
-        flex flex-col border-r border-slate-800/80 bg-slate-950/80 backdrop-blur-md
-        transition-all duration-300 ease-in-out overflow-hidden z-20
-        ${sidebarOpen ? 'w-[300px]' : 'w-0'}
+        fixed inset-y-0 left-0 z-50 flex flex-col border-r border-slate-800/80 bg-slate-950/95 backdrop-blur-xl
+        transition-all duration-300 ease-in-out overflow-hidden
+        ${sidebarOpen ? 'w-[85vw] max-w-[320px] translate-x-0 shadow-2xl shadow-black/80' : 'w-[85vw] max-w-[320px] -translate-x-full pointer-events-none'}
+        md:pointer-events-auto md:static md:translate-x-0 md:shadow-none md:bg-slate-950/80 md:backdrop-blur-md
+        ${sidebarOpen ? 'md:w-[300px]' : 'md:w-0 md:border-r-0'}
       `}>
         {/* Sidebar Header */}
-        <div className="border-b border-slate-800/80 px-4 pb-4 pt-5">
+        <div className="border-b border-slate-800/80 px-4 pb-4 pt-4 sm:pt-5 safe-pt">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/70 to-slate-900 text-cyan-400 shadow-sm shadow-cyan-950/50">
@@ -220,14 +247,25 @@ export default function App() {
               </div>
             </div>
 
-            <button
-              onClick={() => setSettingsOpen(true)}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 text-slate-400 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-white"
-              title="Settings & Credentials"
-              type="button"
-            >
-              <Settings size={15} />
-            </button>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => setSettingsOpen(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 text-slate-400 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-white"
+                title="Settings & Credentials"
+                type="button"
+              >
+                <Settings size={15} />
+              </button>
+
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="flex md:hidden h-8 w-8 items-center justify-center rounded-lg border border-slate-800 text-slate-400 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-white"
+                title="Close drawer"
+                type="button"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
 
           <StatusBar refreshKey={refreshKey} onOpenSettings={() => setSettingsOpen(true)} />
@@ -243,7 +281,7 @@ export default function App() {
         </div>
 
         {/* Ingestion & Document Library */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto touch-scroll">
           <UploadPanel onSuccess={handleUploadSuccess} refreshKey={refreshKey} />
 
           {/* Chat History Section */}
@@ -281,7 +319,7 @@ export default function App() {
 
                     <button
                       onClick={(e) => deleteHistory(item.id, e)}
-                      className="opacity-0 group-hover:opacity-100 rounded p-1 text-slate-500 hover:text-rose-400 transition-opacity"
+                      className="opacity-70 sm:opacity-0 sm:group-hover:opacity-100 rounded p-1 text-slate-500 hover:text-rose-400 transition-opacity"
                       title="Delete chat"
                       type="button"
                     >
@@ -296,7 +334,7 @@ export default function App() {
 
         {/* Clear Current Chat Footer */}
         {messages.length > 0 && (
-          <div className="border-t border-slate-800/80 p-3">
+          <div className="border-t border-slate-800/80 p-3 safe-pb">
             <button
               onClick={clearChat}
               className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/50 px-3 py-1.5 text-xs text-slate-400 transition-colors hover:border-rose-900/50 hover:bg-rose-950/30 hover:text-rose-300"
@@ -312,25 +350,41 @@ export default function App() {
       {/* Main Content Area */}
       <main className="flex min-w-0 flex-1 flex-col bg-gradient-to-b from-[#080d1a] to-[#04060b]">
         {/* Header */}
-        <header className="flex h-14 items-center justify-between border-b border-slate-800/80 px-6 backdrop-blur-sm">
-          <div className="flex items-center gap-3">
+        <header className="flex h-14 items-center justify-between border-b border-slate-800/80 px-3 sm:px-6 backdrop-blur-sm flex-shrink-0">
+          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
             <button
               onClick={() => setSidebarOpen(v => !v)}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-white"
               aria-label="Toggle sidebar"
               type="button"
             >
-              {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+              <span className="md:hidden">
+                {sidebarOpen ? <X size={16} /> : <Menu size={16} />}
+              </span>
+              <span className="hidden md:inline-flex">
+                {sidebarOpen ? <PanelLeftClose size={16} /> : <PanelLeftOpen size={16} />}
+              </span>
             </button>
-            <h1 className="font-display text-sm font-semibold text-slate-200">
-              Grounded Chat & Document Research
-            </h1>
+
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="flex md:hidden h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-gradient-to-br from-cyan-950/70 to-slate-900 text-cyan-400">
+                <Bot size={15} />
+              </div>
+              <div className="min-w-0">
+                <h1 className="font-display text-sm font-semibold text-slate-200 truncate">
+                  <span className="hidden sm:inline">Grounded Chat & Document Research</span>
+                  <span className="sm:hidden font-bold">Clario</span>
+                </h1>
+                <p className="sm:hidden text-[10px] text-slate-400 truncate">Grounded RAG</p>
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             <button
               onClick={() => setSettingsOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/80 px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-cyan-300"
+              className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/80 px-2 sm:px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-cyan-300"
+              title="Settings & Credentials"
               type="button"
             >
               <Settings size={13} />
@@ -338,7 +392,7 @@ export default function App() {
             </button>
 
             {messages.length > 0 && (
-              <span className="font-mono text-[11px] text-slate-400">
+              <span className="font-mono text-[10px] sm:text-[11px] text-slate-400 rounded bg-slate-900 border border-slate-800/80 px-1.5 py-0.5">
                 {messages.length} msg{messages.length !== 1 ? 's' : ''}
               </span>
             )}

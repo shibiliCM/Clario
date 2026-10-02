@@ -29,7 +29,7 @@ export default function StatusBar({ refreshKey, onOpenSettings }) {
           {online === false && (
             <span className="h-2 w-2 rounded-full bg-rose-400 shadow-[0_0_8px_#f87171]" />
           )}
-          <span className="font-mono text-xs font-medium text-slate-300">
+          <span className="font-mono text-xs font-medium text-slate-300 truncate max-w-[140px] sm:max-w-none">
             {online === null ? 'connecting...' : needsKey ? 'Gemini: local only' : online ? 'Gemini 2.5 Flash' : 'backend offline'}
           </span>
         </div>
@@ -37,7 +37,7 @@ export default function StatusBar({ refreshKey, onOpenSettings }) {
         {needsKey ? (
           <button
             onClick={onOpenSettings}
-            className="flex items-center gap-1 rounded bg-amber-950/60 border border-amber-800/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300 hover:bg-amber-900/60 transition-colors"
+            className="flex items-center gap-1 rounded bg-amber-950/60 border border-amber-800/40 px-2 py-1 text-[10px] font-semibold text-amber-300 hover:bg-amber-900/60 transition-colors flex-shrink-0 touch-manipulation"
           >
             <AlertTriangle size={10} />
             add key

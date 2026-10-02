@@ -39,24 +39,25 @@ export default function SettingsModal({ isOpen, onClose, onRefresh }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
-      <div className="relative w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900/95 p-6 shadow-2xl shadow-black/60">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-3 sm:p-4 safe-pb safe-pt">
+      <div className="relative w-full max-w-lg max-h-[90dvh] overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/95 p-4 sm:p-6 shadow-2xl shadow-black/60 touch-scroll">
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 rounded-lg p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
+          className="absolute right-3.5 top-3.5 sm:right-4 sm:top-4 flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white transition-colors"
           type="button"
+          aria-label="Close settings"
         >
           <X size={18} />
         </button>
 
         {/* Title */}
-        <div className="flex items-center gap-2.5 mb-5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-950/60 text-cyan-400">
+        <div className="flex items-center gap-2.5 mb-4 sm:mb-5 pr-8">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl border border-cyan-500/30 bg-cyan-950/60 text-cyan-400">
             <Key size={18} />
           </div>
           <div>
-            <h3 className="font-display text-lg font-bold text-white">Clario Configuration</h3>
+            <h3 className="font-display text-base sm:text-lg font-bold text-white">Clario Configuration</h3>
             <p className="text-xs text-slate-400">Manage your provider credentials and runtime status</p>
           </div>
         </div>
@@ -83,18 +84,18 @@ export default function SettingsModal({ isOpen, onClose, onRefresh }) {
               value={apiKey}
               onChange={e => setApiKey(e.target.value)}
               placeholder="AIzaSy..."
-              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 font-mono text-xs text-slate-200 placeholder-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 font-mono text-base sm:text-xs text-slate-200 placeholder-slate-700 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
             />
             <p className="mt-1.5 text-[11px] leading-relaxed text-slate-500">
               Stored only in your browser's local storage. Passed directly to the backend for streaming responses.
             </p>
           </div>
 
-          <div className="flex items-center justify-between pt-1">
+          <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-2.5 pt-1">
             <button
               type="button"
               onClick={handleClearKey}
-              className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-rose-400 transition-colors"
+              className="inline-flex items-center justify-center gap-1.5 text-xs text-slate-500 hover:text-rose-400 py-2 sm:py-0 transition-colors"
             >
               <Trash2 size={13} />
               Reset to Server Default
@@ -102,7 +103,7 @@ export default function SettingsModal({ isOpen, onClose, onRefresh }) {
 
             <button
               type="submit"
-              className="inline-flex items-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2 text-xs font-semibold text-slate-950 shadow-md shadow-cyan-950/40 hover:bg-cyan-300 transition-all"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-cyan-400 px-4 py-2.5 sm:py-2 text-xs font-semibold text-slate-950 shadow-md shadow-cyan-950/40 hover:bg-cyan-300 transition-all touch-manipulation"
             >
               {saved ? (
                 <>

@@ -6,12 +6,20 @@
 
 * { box-sizing: border-box; }
 
-body {
+html, body, #root {
+  height: 100%;
+  height: 100dvh;
   margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+body {
   background: #060911;
   color: #f1f5f9;
   font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
 }
 
 h1, h2, h3, h4, h5, h6, .font-display {
@@ -119,7 +127,9 @@ h1, h2, h3, h4, h5, h6, .font-display {
 }
 
 .message-markdown pre {
+  max-width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 0.75rem;
   background: #020617;
   border: 1px solid #1e293b;
@@ -139,13 +149,18 @@ h1, h2, h3, h4, h5, h6, .font-display {
   text-decoration: underline;
   text-underline-offset: 0.2em;
   transition: color 0.15s ease;
+  word-break: break-all;
 }
 .message-markdown a:hover {
   color: #7dd3fc;
 }
 
 .message-markdown table {
+  display: block;
   width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
   border-collapse: collapse;
   margin: 0.75rem 0;
   font-size: 0.875rem;
@@ -162,4 +177,12 @@ h1, h2, h3, h4, h5, h6, .font-display {
   background: #0f172a;
   color: #f8fafc;
   font-weight: 600;
+}
+
+/* Safe area padding utilities */
+.safe-pb {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+}
+.safe-pt {
+  padding-top: max(0.5rem, env(safe-area-inset-top, 0px));
 }

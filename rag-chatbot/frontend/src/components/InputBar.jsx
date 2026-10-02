@@ -21,21 +21,21 @@ export default function InputBar({ value, onChange, onSend, onStop, loading, isS
   };
 
   return (
-    <div className="border-t border-slate-800/80 bg-slate-950/60 px-6 py-4 backdrop-blur-md">
+    <div className="border-t border-slate-800/80 bg-slate-950/80 px-3 sm:px-6 py-2 sm:py-3.5 backdrop-blur-md safe-pb">
       <div className="mx-auto max-w-4xl">
-        <div className="relative flex items-end gap-2.5 rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-2.5 shadow-lg shadow-black/40 transition-colors focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30">
-          <MessageSquare size={17} className="mb-2 flex-shrink-0 text-slate-500" />
+        <div className="relative flex items-end gap-2 sm:gap-2.5 rounded-2xl border border-slate-800 bg-slate-900/90 px-3 sm:px-4 py-1.5 sm:py-2.5 shadow-lg shadow-black/40 transition-colors focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30">
+          <MessageSquare size={16} className="mb-2 hidden sm:block flex-shrink-0 text-slate-500" />
           <textarea
             ref={textareaRef}
             value={value}
             onChange={e => onChange(e.target.value)}
             onKeyDown={handleKey}
             rows={1}
-            placeholder="Ask anything about your uploaded documents or web links..."
+            placeholder="Ask anything about your documents or links..."
             className="
-              max-h-36 flex-1 resize-none border-none bg-transparent
-              px-0 py-1.5 text-sm text-slate-100 placeholder-slate-500
-              outline-none disabled:opacity-50
+              max-h-32 flex-1 resize-none border-none bg-transparent
+              px-0 py-1.5 text-base sm:text-sm text-slate-100 placeholder-slate-500
+              outline-none disabled:opacity-50 leading-normal
             "
             style={{ minHeight: '36px' }}
           />
@@ -51,7 +51,7 @@ export default function InputBar({ value, onChange, onSend, onStop, loading, isS
               "
               title="Stop generating"
             >
-              <Square size={14} fill="currentColor" />
+              <Square size={13} fill="currentColor" />
             </button>
           ) : (
             <button
@@ -67,13 +67,13 @@ export default function InputBar({ value, onChange, onSend, onStop, loading, isS
               aria-label="Send query"
               type="button"
             >
-              <SendHorizonal size={17} />
+              <SendHorizonal size={16} />
             </button>
           )}
         </div>
 
-        <div className="mt-2 flex items-center justify-between px-1 text-[11px] text-slate-500">
-          <span>Clario grounds answers strictly in provided documents</span>
+        <div className="mt-1.5 flex items-center justify-between px-1 text-[10px] sm:text-[11px] text-slate-500">
+          <span className="truncate">Grounded strictly in provided documents</span>
           <span className="hidden sm:inline font-mono text-[10px]">
             <kbd className="rounded border border-slate-800 bg-slate-900 px-1.5 py-0.5 text-slate-400">Enter</kbd> to send • <kbd className="rounded border border-slate-800 bg-slate-900 px-1.5 py-0.5 text-slate-400">Shift + Enter</kbd> newline
           </span>
