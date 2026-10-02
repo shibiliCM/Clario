@@ -5,6 +5,7 @@
 [![ChromaDB](https://img.shields.io/badge/Vector%20Store-ChromaDB-orange?style=flat-square)](https://www.trychroma.com/)
 [![Gemini](https://img.shields.io/badge/LLM-Gemini%202.5%20Flash-4285F4?style=flat-square&logo=google)](https://aistudio.google.com/)
 [![Docker](https://img.shields.io/badge/Container-Docker%20Ready-2496ED?style=flat-square&logo=docker)](https://www.docker.com/)
+[![CI](https://github.com/shibiliCM/clario/actions/workflows/ci.yml/badge.svg)](https://github.com/shibiliCM/clario/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
 
 **Clario** is a production-grade, local-first Retrieval-Augmented Generation (RAG) assistant designed for document research, hybrid lexical/semantic search, and grounded question answering with Google Gemini 2.5 Flash.
@@ -16,11 +17,13 @@ It runs as a **unified, single-port service** where FastAPI directly serves both
 ## ✨ Key Features
 
 - ⚡ **Real-Time SSE Streaming**: Word-by-word streaming generation directly from Gemini with an active stop button.
+- 📱 **Fully Mobile Responsive**: Off-canvas slide-over drawer with backdrop dismiss, safe-area adaptation, and touch-optimized controls.
 - 🔍 **Hybrid Retrieval Engine**: Fuses exact lexical token matching with dense semantic cosine similarity in ChromaDB for superior accuracy.
 - 🛡️ **Zero Hallucination Grounding**: Enforces strict system constraints that require the assistant to answer only using retrieved document context and explicitly cite sources.
 - 📁 **Multi-Format Extraction**: Ingests PDF (`pdfplumber`), Word (`python-docx`), CSV spreadsheets, TXT, and Markdown files.
-- 🌐 **SSRF-Protected Web Scraping**: Ingests web articles with automated DNS resolution checks that block private, loopback, or cloud metadata addresses.
+- 🌐 **SSRF-Protected Web Scraping**: Ingests web articles with automated DNS checks and redirect re-validation that blocks private, loopback, or cloud metadata addresses.
 - 🔒 **Client-Side Key Flexibility**: Configure your `GEMINI_API_KEY` on the server or allow users to supply their own key directly in the UI Settings modal.
+- 🧪 **Automated Testing & CI**: Comprehensive unit test suite with automated GitHub Actions workflows for continuous integration.
 - 🚀 **1-Click Live Deployment**: Zero-config blueprints included for **Render** (`render.yaml`) and **Railway** (`railway.json`).
 
 ---
@@ -106,6 +109,12 @@ Open **`http://localhost:8000`**.
 cd rag-chatbot-free-tier/rag-chatbot
 docker build -t clario .
 docker run -p 8000:8000 -e GEMINI_API_KEY="your_api_key_here" clario
+```
+
+### 4. Run Automated Tests
+```powershell
+cd rag-chatbot-free-tier\rag-chatbot\backend
+python -m unittest discover tests
 ```
 
 ---

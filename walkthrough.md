@@ -95,6 +95,13 @@ npm run dev
 
 Open **`http://localhost:5173`** (Vite proxies all `/api` calls directly to port 8000).
 
+### 3. Run Automated Unit Tests
+
+```powershell
+cd rag-chatbot-free-tier\rag-chatbot\backend
+python -m unittest discover tests
+```
+
 ---
 
 ## 🛡️ Production & Security Enhancements
