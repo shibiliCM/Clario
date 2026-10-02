@@ -1,0 +1,25 @@
+# Python & Virtual Environments
+.venv/
+*/.venv/
+__pycache__/
+*.py[cod]
+
+# Environment Variables & Secrets
+.env
+*.env
+!.env.example
+
+# Node / Frontend
+node_modules/
+*/node_modules/
+dist/
+*/dist/
+
+# ChromaDB & Vector Store
+vector_store/
+*/vector_store/
+
+# Logs & OS
+*.log
+.DS_Store
+Thumbs.db

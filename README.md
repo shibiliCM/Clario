@@ -110,23 +110,30 @@ VECTOR_STORE_PATH=./vector_store
 
 ### 2. Start the Backend Server
 
-From the project root directory, run the PowerShell helper script:
-
 ```powershell
+cd rag-chatbot
 .\start_backend.ps1
 ```
 
-This will automatically create a Python virtual environment, install requirements, and start the FastAPI server at `http://localhost:8000`.
+This will automatically create a Python virtual environment, install requirements, and start the FastAPI unified server at `http://localhost:8000`.
 
-### 3. Start the Frontend Dev Server
+### 3. Start the Frontend Dev Server (Optional for Dev)
 
-In a new PowerShell window, run the frontend helper script:
+In a separate terminal window:
 
 ```powershell
+cd rag-chatbot
 .\start_frontend.ps1
 ```
 
 This will run `npm install` and launch the Vite development server. Open `http://localhost:5173` in your browser.
+
+### 4. Run Automated Unit Tests
+
+```powershell
+cd rag-chatbot\backend
+python -m unittest discover tests
+```
 
 ---
 
@@ -137,8 +144,9 @@ This will run `npm install` and launch the Vite development server. Open `http:/
 | **GET** | `/api/health` | Server and knowledge base health status |
 | **GET** | `/api/documents` | List all ingested documents and their chunk counts |
 | **POST** | `/api/ingest` | Upload one or more documents (PDF, DOCX, TXT, MD, CSV) |
-| **POST** | `/api/ingest-url` | Ingest and scrape a web page URL |
+| **POST** | `/api/ingest-url` | Ingest and scrape a web page URL (with SSRF protection) |
 | **POST** | `/api/chat` | Ask questions with context grounding and session history |
+| **GET** | `/api/chat/stream` | Real-time Server-Sent Events (SSE) token streaming |
 | **DELETE** | `/api/documents` | Remove a document and its chunks from the database |
 
 ---
