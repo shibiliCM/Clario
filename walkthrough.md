@@ -35,39 +35,9 @@ graph TD
 
 ---
 
-## 🚀 Live Cloud Deployment (Render & Railway)
+## 🚀 Cloud & Docker Deployment
 
-### Option A: 1-Click Deploy on Render (Recommended)
-
-1. Push this repository to your GitHub account.
-2. Log into [Render Dashboard](https://dashboard.render.com/).
-3. Click **New +** → **Blueprint**, and select your repository (Render automatically detects [render.yaml](file:///c:/DS/projects/clario/render.yaml)).
-4. Alternatively, click **New +** → **Web Service**:
-   - **Environment**: Docker
-   - **Dockerfile Path**: `rag-chatbot-free-tier/rag-chatbot/Dockerfile`
-   - **Context**: `rag-chatbot-free-tier/rag-chatbot`
-   - **Instance Type**: Free
-5. Set Environment Variable in Render Dashboard:
-   - `GEMINI_API_KEY`: _(Your Google Gemini API key from AI Studio)_
-6. Click **Deploy**. Your app will be live at `https://<your-service>.onrender.com`!
-
-### Option B: Railway Deployment
-
-1. Log into [Railway.app](https://railway.app/).
-2. Click **New Project** → **Deploy from GitHub repo**.
-3. Select your repository. Railway automatically reads [railway.json](file:///c:/DS/projects/clario/railway.json).
-4. Add the environment variable `GEMINI_API_KEY`.
-5. Railway will automatically build the multi-stage Docker image and provide a live public HTTPS URL.
-
-### Option C: Local / VPS Docker
-
-```bash
-cd rag-chatbot-free-tier/rag-chatbot
-docker build -t clario .
-docker run -p 8000:8000 -e GEMINI_API_KEY="your_api_key" clario
-```
-
-Open **`http://localhost:8000`** in your browser.
+For step-by-step 1-click cloud deployment instructions (Render & Railway) and Docker container setup, see [README.md](README.md#-live-deployment-render--railway).
 
 ---
 
