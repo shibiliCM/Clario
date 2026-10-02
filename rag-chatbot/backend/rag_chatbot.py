@@ -49,7 +49,7 @@ from gemini_utils import (
 CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", 800))
 CHUNK_OVERLAP = int(os.getenv("CHUNK_OVERLAP", 150))
 TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", 5))
-LOCAL_EMBED_DIM = int(os.getenv("LOCAL_EMBED_DIM", 3072))
+LOCAL_EMBED_DIM = int(os.getenv("LOCAL_EMBED_DIM", 768))
 LLM_MODEL = os.getenv("LLM_MODEL", "gemini-2.5-flash")
 MAX_FILE_SIZE_BYTES = int(os.getenv("MAX_FILE_SIZE_BYTES", 31457280))  # 30 MB default
 
@@ -77,7 +77,7 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=True,
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -245,7 +245,7 @@ def small_talk_answer(question: str) -> Optional[str]:
     normalized = re.sub(r"[^\w\s]", "", question.casefold()).strip()
     normalized = re.sub(r"\s+", " ", normalized)
     greetings = {
-        "hi", "hello", "hey", "hai", "hii", "good morning", "good afternoon", "good evening", "yo",
+        "hi", "hello", "hey", "hai", "hii", "hi there", "hello there", "good morning", "good afternoon", "good evening", "yo",
     }
     thanks = {"thanks", "thank you", "thankyou", "ok", "okay", "cool", "great"}
     identity = {
@@ -553,11 +553,28 @@ def _validate_safe_url(url: str) -> str:
 
 
 async def _scrape_url(url: str) -> str:
-    safe_url = _validate_safe_url(url)
+    current_url = _validate_safe_url(url)
     headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Clario/2.1"}
-    async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
-        resp = await client.get(safe_url, headers=headers)
-        resp.raise_for_status()
+
+    # Manually follow redirects up to 5 hops, re-validating the destination IP on every hop
+    async with httpx.AsyncClient(timeout=15, follow_redirects=False) as client:
+        resp = None
+        for _ in range(5):
+            resp = await client.get(current_url, headers=headers)
+            if resp.is_redirect:
+                redirect_target = resp.headers.get("Location")
+                if not redirect_target:
+                    break
+                from urllib.parse import urljoin
+                current_url = _validate_safe_url(urljoin(current_url, redirect_target))
+                continue
+            resp.raise_for_status()
+            break
+        else:
+            raise ValueError("Too many redirects encountered while scraping URL.")
+
+    if resp is None:
+        raise ValueError("Could not complete request to URL.")
 
     soup = BeautifulSoup(resp.text, "html.parser")
     for tag in soup(["script", "style", "noscript", "svg", "form", "nav", "footer", "header", "aside"]):
