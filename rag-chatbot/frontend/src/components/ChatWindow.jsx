@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Sparkles,
   Zap,
+  UploadCloud,
 } from 'lucide-react';
 
 const SUGGESTIONS = [
@@ -56,7 +57,7 @@ function TypingIndicator() {
   );
 }
 
-function EmptyState({ onSuggestion }) {
+function EmptyState({ onSuggestion, onOpenUpload }) {
   return (
     <div className="flex flex-1 overflow-y-auto touch-scroll">
       <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4 sm:gap-6 px-4 sm:px-6 py-5 sm:py-8 text-center">
@@ -75,6 +76,17 @@ function EmptyState({ onSuggestion }) {
           <p className="max-w-xl text-xs sm:text-sm leading-relaxed text-slate-400">
             Your high-precision document knowledge engine. Upload PDF, Word, CSV, or web articles to analyze and synthesize grounded answers with direct citations.
           </p>
+
+          {onOpenUpload && (
+            <button
+              onClick={onOpenUpload}
+              className="mt-1 flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-sky-400 px-4 py-2 text-xs font-bold text-slate-950 shadow-md shadow-cyan-950/40 transition-all hover:scale-[1.02] hover:from-cyan-300 hover:to-sky-300 active:scale-[0.98]"
+              type="button"
+            >
+              <UploadCloud size={15} />
+              <span>Upload Documents to Knowledge Base</span>
+            </button>
+          )}
         </div>
 
         {/* Feature Highlights Grid */}
@@ -139,28 +151,42 @@ function EmptyState({ onSuggestion }) {
   );
 }
 
-export default function ChatWindow({ messages, loading, streamingMessageId, onSuggestion }) {
-  const bottomRef = useRef(null);
+export default function ChatWindow({
+  messages,
+  loading,
+  streamingMessageId,
+  onSuggestion,
+  onOpenUpload,
+}) {
+  const scrollContainerRef = useRef(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
   }, [messages, loading]);
 
   if (messages.length === 0 && !loading) {
-    return <EmptyState onSuggestion={onSuggestion} />;
+    return <EmptyState onSuggestion={onSuggestion} onOpenUpload={onOpenUpload} />;
   }
 
   return (
-    <div className="flex-1 space-y-1 overflow-y-auto px-3 sm:px-6 pb-3 pt-3 sm:pb-4 sm:pt-6 touch-scroll">
+    <div
+      ref={scrollContainerRef}
+      className="flex-1 space-y-1 overflow-y-auto px-3 sm:px-6 pb-3 pt-3 sm:pb-4 sm:pt-6 touch-scroll overscroll-contain"
+    >
       {messages.map(msg => (
         <MessageBubble
           key={msg.id}
           message={msg}
           isStreaming={msg.id === streamingMessageId}
+          onOpenUpload={onOpenUpload}
         />
       ))}
       {loading && !streamingMessageId && <TypingIndicator />}
-      <div ref={bottomRef} />
     </div>
   );
 }

@@ -17,6 +17,7 @@ import {
   Sparkles,
   Menu,
   X,
+  Paperclip,
 } from 'lucide-react';
 
 const HISTORY_KEY = 'clario-history-v2';
@@ -348,10 +349,11 @@ export default function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex min-w-0 flex-1 flex-col bg-gradient-to-b from-[#080d1a] to-[#04060b]">
-        {/* Header */}
-        <header className="flex h-14 items-center justify-between border-b border-slate-800/80 px-3 sm:px-6 backdrop-blur-sm flex-shrink-0">
-          <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+      <main className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-gradient-to-b from-[#080d1a] to-[#04060b]">
+        {/* Header - Sticky and always pinned at top */}
+        <header className="sticky top-0 z-30 flex h-14 w-full flex-shrink-0 items-center justify-between border-b border-slate-800/80 bg-slate-950/95 px-3 backdrop-blur-md sm:px-6">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            {/* Sidebar drawer toggle button */}
             <button
               onClick={() => setSidebarOpen(v => !v)}
               className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-white"
@@ -366,21 +368,46 @@ export default function App() {
               </span>
             </button>
 
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="flex md:hidden h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-gradient-to-br from-cyan-950/70 to-slate-900 text-cyan-400">
-                <Bot size={15} />
+            {/* If chatting, show New Chat button directly in header */}
+            {messages.length > 0 ? (
+              <button
+                onClick={startNewChat}
+                className="flex items-center gap-1.5 rounded-lg border border-cyan-500/40 bg-cyan-950/50 px-2 sm:px-2.5 py-1 text-xs font-semibold text-cyan-300 transition-all hover:bg-cyan-900/60 hover:text-cyan-200 active:scale-95"
+                title="Start a new conversation"
+                type="button"
+              >
+                <Plus size={14} />
+                <span>New Chat</span>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="flex md:hidden h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg border border-cyan-500/30 bg-gradient-to-br from-cyan-950/70 to-slate-900 text-cyan-400">
+                  <Bot size={15} />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="font-display text-sm font-semibold text-slate-200 truncate">
+                    <span className="hidden sm:inline">Grounded Chat & Document Research</span>
+                    <span className="sm:hidden font-bold">Clario</span>
+                  </h1>
+                  <p className="sm:hidden text-[10px] text-slate-400 truncate">Grounded RAG</p>
+                </div>
               </div>
-              <div className="min-w-0">
-                <h1 className="font-display text-sm font-semibold text-slate-200 truncate">
-                  <span className="hidden sm:inline">Grounded Chat & Document Research</span>
-                  <span className="sm:hidden font-bold">Clario</span>
-                </h1>
-                <p className="sm:hidden text-[10px] text-slate-400 truncate">Grounded RAG</p>
-              </div>
-            </div>
+            )}
           </div>
 
+          {/* Right Header Actions */}
           <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+            {/* Upload Docs direct button in header */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-cyan-800/40 bg-cyan-950/30 px-2 sm:px-2.5 py-1 text-xs font-medium text-cyan-300 transition-colors hover:border-cyan-500/50 hover:bg-cyan-900/40 hover:text-cyan-200 active:scale-95"
+              title="Upload documents or web links"
+              type="button"
+            >
+              <Paperclip size={13} className="text-cyan-400" />
+              <span className="hidden xs:inline sm:inline">Upload Docs</span>
+            </button>
+
             <button
               onClick={() => setSettingsOpen(true)}
               className="flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/80 px-2 sm:px-2.5 py-1 text-xs text-slate-300 transition-colors hover:border-slate-700 hover:bg-slate-800 hover:text-cyan-300"
@@ -392,9 +419,14 @@ export default function App() {
             </button>
 
             {messages.length > 0 && (
-              <span className="font-mono text-[10px] sm:text-[11px] text-slate-400 rounded bg-slate-900 border border-slate-800/80 px-1.5 py-0.5">
-                {messages.length} msg{messages.length !== 1 ? 's' : ''}
-              </span>
+              <button
+                onClick={clearChat}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-800 bg-slate-900/80 text-slate-400 transition-colors hover:border-rose-900/60 hover:bg-rose-950/30 hover:text-rose-300"
+                title="Clear current chat"
+                type="button"
+              >
+                <Trash2 size={13} />
+              </button>
             )}
           </div>
         </header>
@@ -405,6 +437,7 @@ export default function App() {
           loading={loading}
           streamingMessageId={streamingId}
           onSuggestion={handleSend}
+          onOpenUpload={() => setSidebarOpen(true)}
         />
 
         {/* Query Input Bar */}
@@ -415,6 +448,7 @@ export default function App() {
           onStop={handleStop}
           loading={loading}
           isStreaming={Boolean(streamingId)}
+          onOpenUpload={() => setSidebarOpen(true)}
         />
       </main>
     </div>

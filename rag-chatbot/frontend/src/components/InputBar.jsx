@@ -1,7 +1,15 @@
 import { useEffect, useRef } from 'react';
-import { MessageSquare, SendHorizonal, Square } from 'lucide-react';
+import { MessageSquare, SendHorizonal, Square, Paperclip } from 'lucide-react';
 
-export default function InputBar({ value, onChange, onSend, onStop, loading, isStreaming }) {
+export default function InputBar({
+  value,
+  onChange,
+  onSend,
+  onStop,
+  loading,
+  isStreaming,
+  onOpenUpload,
+}) {
   const textareaRef = useRef(null);
 
   useEffect(() => {
@@ -23,8 +31,17 @@ export default function InputBar({ value, onChange, onSend, onStop, loading, isS
   return (
     <div className="border-t border-slate-800/80 bg-slate-950/80 px-3 sm:px-6 py-2 sm:py-3.5 backdrop-blur-md safe-pb">
       <div className="mx-auto max-w-4xl">
-        <div className="relative flex items-end gap-2 sm:gap-2.5 rounded-2xl border border-slate-800 bg-slate-900/90 px-3 sm:px-4 py-1.5 sm:py-2.5 shadow-lg shadow-black/40 transition-colors focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30">
-          <MessageSquare size={16} className="mb-2 hidden sm:block flex-shrink-0 text-slate-500" />
+        <div className="relative flex items-end gap-1.5 sm:gap-2.5 rounded-2xl border border-slate-800 bg-slate-900/90 px-2.5 sm:px-4 py-1.5 sm:py-2.5 shadow-lg shadow-black/40 transition-colors focus-within:border-cyan-500/50 focus-within:ring-1 focus-within:ring-cyan-500/30">
+          {/* Document Upload Button */}
+          <button
+            onClick={onOpenUpload}
+            type="button"
+            className="mb-0.5 flex h-8 w-8 sm:h-9 sm:w-9 flex-shrink-0 items-center justify-center rounded-xl text-slate-400 hover:border hover:border-cyan-500/30 hover:bg-slate-800 hover:text-cyan-300 active:scale-95 transition-all"
+            title="Upload or manage documents (PDF, DOCX, CSV, TXT, or web URL)"
+            aria-label="Upload document"
+          >
+            <Paperclip size={18} />
+          </button>
           <textarea
             ref={textareaRef}
             value={value}

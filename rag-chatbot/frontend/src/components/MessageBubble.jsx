@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Bot, User, ChevronDown, ChevronUp, FileText, Copy, Check, Sparkles } from 'lucide-react';
+import { Bot, User, ChevronDown, ChevronUp, FileText, Copy, Check, Sparkles, UploadCloud, Paperclip } from 'lucide-react';
 
 function scoreLabel(score) {
   if (!Number.isFinite(score)) return null;
   return `${Math.max(0, Math.min(100, Math.round(score * 100)))}% match`;
 }
 
-export default function MessageBubble({ message, isStreaming = false }) {
+export default function MessageBubble({ message, isStreaming = false, onOpenUpload }) {
   const [showSources, setShowSources] = useState(false);
   const [copied, setCopied] = useState(false);
   const isAI = message.role === 'assistant';
@@ -61,28 +61,55 @@ export default function MessageBubble({ message, isStreaming = false }) {
 
           {/* Action buttons on AI bubble */}
           {isAI && message.content && !isStreaming && (
-            <div className="mt-2.5 flex items-center justify-between border-t border-slate-800/60 pt-2 text-[11px] text-slate-500">
+            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/60 pt-2 text-[11px] text-slate-500">
               <span className="flex items-center gap-1 font-mono text-[10px] text-slate-500">
                 <Sparkles size={11} className="text-cyan-400" />
                 Grounded by Gemini
               </span>
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-1 rounded px-2 py-0.5 transition-colors hover:bg-slate-800 hover:text-slate-300"
-                title="Copy response"
-                type="button"
-              >
-                {copied ? (
-                  <>
-                    <Check size={11} className="text-emerald-400" />
-                    <span className="text-emerald-400">Copied</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={11} />
-                    <span>Copy</span>
-                  </>
+              <div className="flex items-center gap-1.5">
+                {onOpenUpload && (
+                  <button
+                    onClick={onOpenUpload}
+                    className="flex items-center gap-1 rounded bg-cyan-950/40 border border-cyan-800/30 px-2 py-0.5 text-[11px] text-cyan-300 transition-colors hover:bg-cyan-900/50 hover:text-cyan-200"
+                    title="Upload or manage documents"
+                    type="button"
+                  >
+                    <Paperclip size={11} />
+                    <span>Upload Docs</span>
+                  </button>
                 )}
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1 rounded px-2 py-0.5 transition-colors hover:bg-slate-800 hover:text-slate-300"
+                  title="Copy response"
+                  type="button"
+                >
+                  {copied ? (
+                    <>
+                      <Check size={11} className="text-emerald-400" />
+                      <span className="text-emerald-400">Copied</span>
+                    </>
+                  ) : (
+                    <>
+                      <Copy size={11} />
+                      <span>Copy</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Interactive CTA if no documents indexed */}
+          {isAI && message.content && message.content.toLowerCase().includes('no documents are currently indexed') && onOpenUpload && (
+            <div className="mt-3 pt-2.5 border-t border-cyan-900/40">
+              <button
+                onClick={onOpenUpload}
+                type="button"
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-400 to-sky-400 px-3.5 py-2.5 text-xs font-bold text-slate-950 shadow-md shadow-cyan-950/40 transition-all hover:scale-[1.01] hover:from-cyan-300 hover:to-sky-300 active:scale-[0.99]"
+              >
+                <UploadCloud size={16} />
+                <span>Upload Documents to Knowledge Base</span>
               </button>
             </div>
           )}
