@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Bot, User, ChevronDown, ChevronUp, FileText, Copy, Check, Sparkles, UploadCloud, Paperclip } from 'lucide-react';
+import { Bot, User, ChevronDown, ChevronUp, FileText, Copy, Check, UploadCloud, Paperclip } from 'lucide-react';
 
 function scoreLabel(score) {
   if (!Number.isFinite(score)) return null;
@@ -61,23 +61,18 @@ export default function MessageBubble({ message, isStreaming = false, onOpenUplo
 
           {/* Action buttons on AI bubble */}
           {isAI && message.content && !isStreaming && (
-            <div className="mt-2.5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/60 pt-2 text-[11px] text-slate-500">
-              <span className="flex items-center gap-1 font-mono text-[10px] text-slate-500">
-                <Sparkles size={11} className="text-cyan-400" />
-                Grounded by Gemini
-              </span>
-              <div className="flex items-center gap-1.5">
-                {onOpenUpload && (
-                  <button
-                    onClick={onOpenUpload}
-                    className="flex items-center gap-1 rounded bg-cyan-950/40 border border-cyan-800/30 px-2 py-0.5 text-[11px] text-cyan-300 transition-colors hover:bg-cyan-900/50 hover:text-cyan-200"
-                    title="Upload or manage documents"
-                    type="button"
-                  >
-                    <Paperclip size={11} />
-                    <span>Upload Docs</span>
-                  </button>
-                )}
+            <div className="mt-2.5 flex flex-wrap items-center justify-end gap-1.5 border-t border-slate-800/60 pt-2 text-[11px] text-slate-500">
+              {onOpenUpload && (
+                <button
+                  onClick={onOpenUpload}
+                  className="flex items-center gap-1 rounded bg-cyan-950/40 border border-cyan-800/30 px-2 py-0.5 text-[11px] text-cyan-300 transition-colors hover:bg-cyan-900/50 hover:text-cyan-200"
+                  title="Upload or manage documents"
+                  type="button"
+                >
+                  <Paperclip size={11} />
+                  <span>Upload Docs</span>
+                </button>
+              )}
                 <button
                   onClick={handleCopy}
                   className="flex items-center gap-1 rounded px-2 py-0.5 transition-colors hover:bg-slate-800 hover:text-slate-300"
@@ -96,7 +91,6 @@ export default function MessageBubble({ message, isStreaming = false, onOpenUplo
                     </>
                   )}
                 </button>
-              </div>
             </div>
           )}
 
