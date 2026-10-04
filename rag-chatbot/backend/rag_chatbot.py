@@ -145,8 +145,8 @@ CRITICAL RULES:
 2. If the answer is NOT present or cannot be inferred from the context, respond clearly:
    "I don't have enough information to answer that from the provided documents."
 3. Never invent facts, hallucinate citations, or make assumptions outside the provided context.
-4. Always cite the document name or source when referencing specific facts or findings.
-5. Provide a well-structured, clear explanation using Markdown headings, bullet points, or code formatting when helpful.
+4. Clean formatting: Do NOT append the document filename (e.g. "(filename.pdf)") to every sentence, line, or bullet point. The UI already tracks and cites all source documents automatically in a dedicated drawer below the response. Only mention a document name if contrasting multiple conflicting sources or if explicitly requested.
+5. Provide a well-structured, natural explanation using Markdown headings, bullet points, or code formatting when helpful.
 """
 
 
